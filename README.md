@@ -14,7 +14,7 @@ npm start
 ```
 
 Open **http://localhost:3000**, enter a name, **Begin**, share the four-letter code.
-Up to four players. Tests: `npm test` (117 including release and restart tests).
+Up to four players. Tests: `npm test` (120 including guard tuning, release and restart tests).
 
 ---
 
@@ -377,3 +377,12 @@ a Node.js host that accepts HTTP plus WebSockets (for example Railway).
    title, cover image and description before the official deadline.
 
 See `SUBMISSION.md` for the contest summary and `RELEASE_CHECKLIST.md` for tests.
+
+### Guard balance update (v0.9.1)
+The palace patrol pace is 60% of normal walking speed (was 78%); guards
+in alert pursuit move at 84% (was 100%). Unalerted palace vision shrinks
+from 235 to 180 pixels and from a 0.72 to 0.50 radian half-cone, but
+very close proximity can still reveal you. Act II spearmen, hunters and
+captains have narrower initial sight cones, shorter spotting range and
+14–17% slower movement. Attacks, difficulty progression, cinematics,
+multiplayer and story remain unchanged.
