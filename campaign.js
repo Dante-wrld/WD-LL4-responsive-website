@@ -36,6 +36,10 @@ class Session {
         m.players = this.roster.map((r) => ({ id: r.id, n: r.name, host: r.host, build: r.build, online: !!r.connected }));
       }
       this.out(pid, m);
+      // Deliver the first Act II state immediately after its map. Without this,
+      // a client can briefly render the shrine using stale Act I state while
+      // waiting for the next 30 Hz broadcast. Each seat receives its own me.
+      if (m && m.t === 'map2') this.sendShrineSnapshot(pid);
     };
     this.room = new Room(code, this.relay);
     this.shrine = null;
@@ -127,6 +131,17 @@ class Session {
   isHost(id) { const r = this.roster.find((x) => x.id === id); return !!(r && r.host); }
 
   sendLobby() { this.relay(null, { t: 'lobby', code: this.code }); }
+
+  sendShrineSnapshot(pid) {
+    if (this.stage !== 'act2' || !this.shrine || !this.shrine.map) return;
+    const shared = JSON.parse(this.shrine.sharedJSON());
+    const sendSeat = (id) => {
+      if (!this.shrine.players.has(id)) return;
+      this.out(id, { ...shared, me: JSON.parse(this.shrine.meJSON(id)) });
+    };
+    if (pid != null) return sendSeat(pid);
+    for (const r of this.roster) if (r.connected) sendSeat(r.id);
+  }
   syncTo(pid) {
     this.sendLobby();
     // somebody arriving mid-cinematic watches it too, rather than standing in a
@@ -134,7 +149,10 @@ class Session {
     if (this.story) return this.out(pid, Object.assign({ t: 'story', key: this.story.key,
       scenes: scenes(this.story.key), wait: true }, this.story.extra || {}));
     if (this.stage === 'road') return this.out(pid, this.roadMsg());
-    if (this.active && this.active.phase !== 'lobby') this.out(pid, this.active.mapMsg());
+    if (this.active && this.active.phase !== 'lobby') {
+      this.out(pid, this.active.mapMsg());
+      if (this.stage === 'act2') this.sendShrineSnapshot(pid);
+    }
     if (this.stage === 'act2' && this.shrine) {
       const sh = this.shrine;
       if (sh.phase === 'gift' && sh.offer) this.out(pid, { t: 'gift', offer: sh.offer,
