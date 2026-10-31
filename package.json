@@ -1,0 +1,17 @@
+{
+  "name": "chaminuka-vessel",
+  "version": "0.9.0",
+  "description": "Chaminuka: The Exiled Prophet \u2014 multiplayer possession adventure, persistent reconnect, combat builds and separate leaderboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}
