@@ -434,3 +434,13 @@ If mobile autoplay is blocked, the story panel stays visible with PLAY VIDEO.
 Illustrated stills retain their narration text and Continue button, because
 those scenes do not advance automatically. The original WebSocket 'seen' flow,
 multiplayer waiting, cutscene order and full 41-second prologue are unchanged.
+
+### v0.9.7: Restore the original mobile controls
+
+Reverts ONLY `public/touch-controls.js` to its v0.9.4 layout after
+feedback that the v0.9.5 bottom dock made the game difficult to see.
+The controls again sit inside the game stage: a floating joystick appears
+where you touch the left side, and the original action buttons are overlaid
+at the lower right. The stage is no longer shrunk to make room for a dock.
+All v0.9.6 cinematic controls, the full opening video, the shorter NPC patrols,
+room recovery, multiplayer and character builds remain unchanged.
