@@ -125,10 +125,21 @@ function palace() {
       { role: 'servant', name: 'Rudo', route: [[35, 9], [35, 16], [31, 16]], pause: 2.0 },
       { role: 'soldier', name: 'Shungu', route: [[28, 11], [28, 13]], pause: 3.2 },
       { role: 'captain', name: 'Zivai', route: [[34, 6], [34, 12]], pause: 3.0 },
-    ].map((b, i) => ({
-      id: i + 1, role: b.role, name: b.name, pause: b.pause,
-      route: b.route.map(([x, y]) => ({ x: px(x), y: px(y) })),
-    })),
+    ].map((b, i) => {
+      // Most palace residents hold their post. Only seven walk short local beats.
+      // An actual alert can still send them farther in pursuit.
+      const LOCAL_PATROLS = new Set(['Rwatira', 'Garai', 'Garikai', 'Mukoma', 'Farai', 'Shungu', 'Zivai']);
+      const route = [b.route[0]];
+      if (LOCAL_PATROLS.has(b.name) && b.route.length > 1) {
+        const [x, y] = route[0], [tx, ty] = b.route[1];
+        const nx = x + Math.sign(tx - x) * Math.min(2, Math.abs(tx - x));
+        const ny = y + Math.sign(ty - y) * Math.min(2, Math.abs(ty - y));
+        // Never turn a short patrol into a wall collision.
+        if (g[ny] && (g[ny][nx] === '.' || g[ny][nx] === 'D')) route.push([nx, ny]);
+      }
+      return { id: i + 1, role: b.role, name: b.name, pause: b.pause,
+        route: route.map(([x, y]) => ({ x: px(x), y: px(y) })) };
+    }),
   };
 }
 
