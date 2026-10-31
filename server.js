@@ -113,6 +113,14 @@ function start(port, opts) {
         case 'skip': room.skipTo(ws.pid, String(m.to || '')); break;
         case 'go': room.go(ws.pid); break;
         case 'seen': room.seen(ws.pid); break;
+        case 'sync':
+          // Throttle explicit resync requests from clients recovering a stage
+          // transition. The normal 30Hz snapshots still flow as usual.
+          if (Date.now() - (ws.lastSync || 0) >= 1000) {
+            ws.lastSync = Date.now();
+            room.syncTo(ws.pid);
+          }
+          break;
         case 'build': room.chooseBuild(ws.pid, String(m.key || '')); break;
         case 'board': send(ws, { t: 'board', board: records.top() }); break;
         default: break;
