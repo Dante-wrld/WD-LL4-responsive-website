@@ -455,3 +455,15 @@ The renderer uses the server's range and half-angle directly in **both** states,
 so the visible cones represent the same detection limits as the game rules.
 Alert pursuit and the existing guard movement speed are unchanged.
 The overlays have slightly lower opacity to reduce visual clutter.
+
+### v0.9.9: Fix empty Act II shrine after palace escape
+
+The shrine map and each player's personal snapshot are now delivered together
+at every Act II chamber entrance, not only on the next 30 Hz broadcast.
+The client clears its stale palace snapshot, temporarily displays
+"ENTERING THE SHRINE", and does not render the shrine until the first valid
+Act II snapshot contains the player's own character and enemies.
+If the snapshot does not arrive, the client requests a throttled resync.
+The same map+snapshot recovery applies to reconnecting players.
+This fixes the empty-arena transition while preserving the full story,
+mobile controls and existing guard visibility adjustments.
