@@ -80,7 +80,8 @@
     <div class="row"><button id="create" class="primary">BEGIN</button><span style="color:var(--dim)">or join</span>
       <input id="code" type="text" maxlength="4" placeholder="CODE" style="width:6em"><button id="join">JOIN</button></div>
     <div class="row"><button id="previewStory" type="button">WATCH STORY PREVIEW</button><button id="resumeRoom" type="button" class="hidden">RESUME LAST ROOM</button></div>
-    <div id="err" class="err"></div>
+    <div class="sub" style="font-size:11px;max-width:58ch">Demo notice: this free-hosted game may reset room saves and leaderboards when the server sleeps, restarts or updates. Resume works only while the room still exists.</div>
+    <div id="err" class="err" role="status" aria-live="polite"></div>
     <div class="keys"><b>WASD</b> move · <b>E</b> wear / leave a body · <b>F</b> that body's one trick ·
       <b>SPACE</b> pick up / set down the child · <b>SHIFT</b> hurry (people notice) · <b>H</b> help</div>
   </div>
@@ -138,6 +139,7 @@
     <div id="prophecy" style="margin:10px auto;max-width:34em;font-style:italic;color:var(--gold);font-size:13px"></div>
     <div id="earned" style="margin:8px auto;max-width:34em;font-size:12px"></div>
     <div id="boards" style="margin:12px auto;max-width:40em;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:11px;color:#9fb0c0"></div>
+    <div class="sub" style="font-size:11px;max-width:45em">Leaderboard notice: scores on the free-hosted demo are temporary and may reset after server inactivity or an update. Permanent competitive rankings require durable storage.</div>
     <div id="nextup" style="margin:10px auto;max-width:34em;font-size:12px;color:#8f9fb0"></div>
     <div class="row"><button id="again" class="primary">AGAIN</button></div>
   </div>
@@ -256,12 +258,17 @@ function setBanner(t, s, ms) {
 const send = (o) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); };
 function connect(name, code, token) {
   $('err').textContent = ''; myName = name;
-  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host); }
+  const previous = ws;
+  let socket;
+  try { socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host); }
   catch (e) { $('err').textContent = 'Cannot open a connection.'; return; }
-  ws.onopen = () => send({ t: 'join', name, code, token: token || '' });
-  ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
-  ws.onclose = () => { if (phase !== 'title') { phase = 'title'; map = null; snap = null; show('title'); $('err').textContent = 'Disconnected.'; } };
-  ws.onerror = () => { $('err').textContent = 'Could not reach the server.'; };
+  ws = socket;
+  // Ignore late callbacks from older connections after a successful rejoin.
+  if (previous && previous !== socket) previous.close();
+  socket.onopen = () => { if (ws === socket) send({ t: 'join', name, code, token: token || '' }); };
+  socket.onmessage = (e) => { if (ws !== socket) return; let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
+  socket.onclose = () => { if (ws !== socket) return; if (phase !== 'title') { phase = 'title'; map = null; snap = null; show('title'); $('err').textContent = 'Disconnected. Rejoin with your saved room if it is still available.'; } };
+  socket.onerror = () => { if (ws === socket) $('err').textContent = 'Could not reach the server.'; };
 }
 function onMsg(m) {
   switch (m.t) {
@@ -273,7 +280,15 @@ function onMsg(m) {
       if (m.board) drawBoards(m.board);
       if (m.best) toast(`Your best: out in ${Math.floor(m.best.secs / 60)}m ${Math.round(m.best.secs % 60)}s, ${m.best.bodies} ${m.best.bodies === 1 ? 'body' : 'bodies'}`);
       try { localStorage.setItem('vname', myName); } catch (e) {} break;
-    case 'err': $('err').textContent = m.msg; if (ws) ws.close(); break;
+    case 'err':
+      if (m.code === 'ROOM_EXPIRED' || m.code === 'INVALID_RECOVERY') {
+        try { localStorage.removeItem('chaminuka-seat'); } catch (_) {}
+        $('resumeRoom').classList.add('hidden');
+      }
+      phase = 'title'; map = null; snap = null; show('title');
+      $('err').textContent = m.msg || 'Could not join the room.';
+      if (ws) ws.close();
+      break;
     case 'lobby': onLobby(m); break;
     case 'map': map = m; phase = 'run'; show(null); buildMini();
       if (m.prophecy) setBanner('THE CHILD IN THE CRADLE', m.prophecy, 5200);
