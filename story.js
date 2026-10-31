@@ -7,22 +7,25 @@
  * front — seventy-one seconds of watching before anybody pressed a key. This
  * build has real seams, so the clips go on them:
  *
- *   prologue   before the palace        a short look at the kingdom, then two stills
+ *   prologue   before the palace        the complete 41-second opening, then two stills
  *   escape     the palace is won        one still, and away north
  *   jump       the road is walked       the sanctuary, sixteen years, what he becomes
  *   finale     the shrine is held       a glimpse of the battles still ahead
  *
- * Twelve seconds of video stand between a new player and the first decision. The
- * full twenty-nine second cut lives in the preview reel on the title screen,
- * where somebody who wants to watch it can, and nobody else has to.
+ * The complete 41-second original opening now plays before the palace:
+ * 29 seconds of the night kingdom followed by the 12-second continuation.
+ * Each player can skip; the cinematic multiplayer barrier waits for the group.
  */
 
 /** A scene is either a video (with an optional `to` to cut it short) or a still. */
 const SCENES = {
   prologue: [
-    { video: 'kingdom-at-night', to: 12, still: 'birth', title: 'The Kingdom Before the Prophecy',
+    { video: 'kingdom-at-night', still: 'birth', title: 'The Kingdom Before the Prophecy',
       text: 'Dzimbahwe, under a restless night sky. The royal city sleeps beneath the same stars that '
         + 'foretell the birth of a child the king will come to fear.' },
+    { video: 'sixteen-years-later', still: 'awakening', title: 'A Glimpse of His Destiny',
+      text: 'A vision passes through years not yet lived. Tonight, however, the child is still in danger. '
+        + 'His spirit must first find a way out of the palace.' },
     { still: 'birth', title: 'The Night of the Prophecy',
       text: 'The mediums name him before he can open his eyes. By morning the king has given the order, '
         + 'and the order is simple: the child does not live to see another night.' },
