@@ -49,14 +49,15 @@ test('every video scene has a still behind it, so a refused autoplay still shows
   }
 });
 
-test('a new player waits twelve seconds of video, not seventy-one', () => {
-  const LENGTH = { 'kingdom-at-night': 29, 'sixteen-years-later': 12, 'healing-vision': 20, 'warrior-vision': 10 };
-  let upFront = 0;
-  for (const s of scenes('prologue')) if (s.video) upFront += s.to || LENGTH[s.video];
-  assert.ok(upFront <= 15, `${upFront}s stands between a new player and the first decision`);
-  // and the full cut is still there for anybody who wants it
-  const full = reel().filter((s) => s.video && s.video === 'kingdom-at-night')[0];
-  assert.ok(full && !full.to, 'the preview reel plays the long version');
+test('the full 41 seconds of the original opening play before the palace', () => {
+  const LENGTH = { 'kingdom-at-night': 29, 'sixteen-years-later': 12,
+    'healing-vision': 20, 'warrior-vision': 10 };
+  const movies = scenes('prologue').filter(s => s.video);
+  assert.deepEqual(movies.map(s => s.video), ['kingdom-at-night', 'sixteen-years-later']);
+  assert.ok(movies.every(s => !s.to), 'no prologue footage gets cut short');
+  assert.equal(movies.reduce((sum, s) => sum + LENGTH[s.video], 0), 41);
+  const full = reel().find(s => s.video === 'kingdom-at-night');
+  assert.ok(full && !full.to);
 });
 
 test('the preview reel is the whole story, in order, and changes nothing', () => {
