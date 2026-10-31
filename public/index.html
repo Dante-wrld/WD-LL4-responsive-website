@@ -740,19 +740,32 @@ function drawFeed() {
 }
 
 // ------------------------------------------------------------------ Act II
+let shrineSyncTimer = null;
 function onMap2(m) {
-  act = 2; map = m; phase = 'run'; FOE = m.foes || FOE;
+  // A new map must never render against the previous act's snapshot.
+  // Wait for the matching Act II player/enemy state before showing gameplay.
+  act = 2; map = m; phase = 'loading2'; FOE = m.foes || FOE;
+  snap = null; snap2 = null; me = null; me2 = null;
   Fs.clear(); P.clear(); B.clear();
   feed.length = 0; fx.length = 0; parts.length = 0; texts.length = 0;
-  $('toast').textContent = '';            // nothing from the road lingers into the fight
+  $('toast').textContent = '';
   buildMini();
   show(null);
-  setBanner(m.name, m.line, 4200);
+  clearTimeout(shrineSyncTimer);
+  shrineSyncTimer = setTimeout(() => {
+    if (act !== 2 || snap2 || !map) return;
+    // If the first state is delayed, ask the server to re-send map and
+    // personalized snapshot. This also recovers an interrupted transition.
+    send({ t: 'sync' });
+  }, 1800);
 }
 function onSnap2(m) {
   if (!map || act !== 2) return;
+  if (!m || !Array.isArray(m.p) || !Array.isArray(m.f) ||
+      !m.p.some((p) => p.i === myId) || !m.me || m.me.act !== 2) return;
+  clearTimeout(shrineSyncTimer); shrineSyncTimer = null;
   snap2 = m; snap = m; me2 = m.me; me = m.me;
-  if (m.ph === 'run' && phase !== 'run') { phase = 'run'; show(null); }
+  if (m.ph === 'run' && phase !== 'run') { phase = 'run'; show(null); setBanner(map.name, map.line, 4200); }
   const seen = new Set();
   for (const p of m.p) {
     let o = P.get(p.i); if (!o) { o = { x: p.x, y: p.y, walk: 0 }; P.set(p.i, o); }
@@ -1329,6 +1342,10 @@ function frame(now) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#07060c'; ctx.fillRect(0, 0, W, H);
   const live = phase === 'run' || phase === 'won' || phase === 'lost' || phase === 'gift' || phase === 'down' || phase === 'done';
+  if (phase === 'loading2') {
+    txt('ENTERING THE SHRINE', W / 2, H / 2 - 4, 20, '#e8b84a', 'center');
+    txt('Restoring your character and enemies…', W / 2, H / 2 + 22, 12, '#a9a0bb', 'center');
+  }
   if (map && snap && live) {
     anim(dt);
     if (act === 2) { drawWorld2(); ctx.setTransform(1, 0, 0, 1, 0, 0); drawHUD2(); }
@@ -1345,7 +1362,7 @@ try {
     $('resumeRoom').onclick = () => connect(saved.name, saved.code, saved.token);
   }
 } catch (_) {}
-window.__vessel = { connect, send, state: () => ({ phase, act, map: !!map, snap: !!snap, players: P.size, bodies: B.size, me, myId }) };
+window.__vessel = { connect, send, state: () => ({ phase, act, map: !!map, snap: !!snap, players: P.size, enemies: Fs.size, bodies: B.size, me, myId }) };
 })();
 </script>
 <script src="/touch-controls.js" defer></script>
