@@ -66,6 +66,9 @@ const CLEAR_PAUSE = 1.2;               // beat after the last foe falls, before 
  * the stealth tool rather than making the whole room a stealth puzzle. */
 const AWARE_MULT = 1.7;                // they sense him this much further than they see
 const LOOK_SPIN = 1.6;                 // radians per second while searching
+const SEARCH_HALF_CONE = 0.95;        // pursuers search broadly, but not through 360 degrees
+const BACK_TAKE_ANGLE = 1.35;         // radians: reach an alerted guard from behind
+const BACK_TAKE_RANGE = 40;          // a close, deliberate transfer is required
 
 /** Offered two at a time between chambers. Short, legible, and each one changes
  *  a number the player can feel rather than a number on a sheet. */
@@ -240,12 +243,14 @@ class Shrine {
     for (const f of this.foes) {
       if (f.dead || f.wornBy) continue;
       if (f.state === 'strike' && !bold) continue;
-      // Once they know a spirit is loose among them, a man who is actively
-      // hunting will not stand still to be worn. You have to break away and let
-      // him lose you first — which is what the pillars are for. Without this,
-      // possession is an endless supply of spare bodies and the act plays itself.
-      if (f.state === 'hunt' && this.betrayed && !bold) continue;
       const d = hyp(f.x, f.y, p.x, p.y);
+      // After betrayal, frontal possession of an actively hunting guard
+      // remains blocked. The spirit can escape by slipping close behind him,
+      // while the Bold affinity can bypass that restriction.
+      if (f.state === 'hunt' && this.betrayed && !bold) {
+        const behind = angDiff(f.aim, Math.atan2(p.y - f.y, p.x - f.x)) > BACK_TAKE_ANGLE;
+        if (d < 12 || d > BACK_TAKE_RANGE || !behind) continue;
+      }
       if (d < bd) { bd = d; best = f; }
     }
     return best;
@@ -479,7 +484,9 @@ class Shrine {
       if (p.form === 'self') { out.push({ p, kind: 'flesh', x: p.x, y: p.y, vacant: false }); continue; }
       out.push({ p, kind: 'vacant', x: p.bodyX, y: p.bodyY, vacant: true });
       // a man being stabbed fights the thing stabbing him
-      if (p.form === 'worn' && this.betrayed) {
+      // A past betrayal cannot expose an unrelated, freshly borrowed guard.
+      // Only a strike from the CURRENT borrowed identity reveals that one.
+      if (p.form === 'worn' && p.struckWhileWorn) {
         const f = this.foe(p.foeId);
         if (f && !f.dead) out.push({ p, kind: 'worn', foe: f, x: p.x, y: p.y, vacant: false });
       }
@@ -537,7 +544,8 @@ class Shrine {
       // In his own body he is simply known. Out of it, his flesh must be found.
       const reach = spec.notice * t.p.noticeMult;
       const seen = t.b.vacant
-        ? canSee(this.map, f, t.b.x, t.b.y, reach, f.state === 'hunt' ? Math.PI : spec.cone)
+        ? canSee(this.map, f, t.b.x, t.b.y, reach,
+            f.state === 'hunt' ? Math.max(SEARCH_HALF_CONE, spec.cone) : spec.cone)
         : (t.d <= reach * AWARE_MULT && los(this.map, f.x, f.y, t.b.x, t.b.y));
       if (seen) {
         f.state = f.state === 'watch' ? 'hunt' : f.state;
