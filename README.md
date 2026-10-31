@@ -14,7 +14,7 @@ npm start
 ```
 
 Open **http://localhost:3000**, enter a name, **Begin**, share the four-letter code.
-Up to four players. Tests: `npm test` (120 including guard tuning, release and restart tests).
+Up to four players. Tests: `npm test` (123 including guard tuning, recovery/expiry, release and restart tests).
 
 ---
 
@@ -386,3 +386,11 @@ very close proximity can still reveal you. Act II spearmen, hunters and
 captains have narrower initial sight cones, shorter spotting range and
 14–17% slower movement. Attacks, difficulty progression, cinematics,
 multiplayer and story remain unchanged.
+
+### v0.9.3: Safe resume and storage warnings
+
+Invalid recovery keys are refused instead of silently adding duplicate players. If a room
+expires on the free hosted demo, the Resume button is cleared and the player sees how to
+start over. Room checkpoints and leaderboards continue to use local JSON files and **will
+reset** on Render free-tier instance shutdown/replacement. See `PRODUCTION_STORAGE.md`
+for limitations and the durable database migration path.
