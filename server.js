@@ -138,9 +138,17 @@ function start(port, opts) {
     let recoveryToken = null, playerId = null;
     if (code) {
       room = rooms.get(code);
-      if (!room) return send(ws, { t: 'err', msg: `No room "${code}".` });
-      const given = typeof m.token === 'string' && /^[a-f0-9]{64}$/.test(m.token) ? m.token : null;
+      if (!room) {
+        // Distinguish an expired recovery attempt from a mistyped invite code.
+        return send(ws, m.token ? { t: 'err', code: 'ROOM_EXPIRED',
+          msg: 'Your previous room is no longer available. On this free demo, idle periods and redeploys may reset saved rooms. Select BEGIN to start a new one.' }
+          : { t: 'err', code: 'NO_ROOM', msg: `No room "${code}". Check the invite code.` });
+      }
+      const recoveryAttempt = typeof m.token === 'string' && m.token.length > 0;
+      const given = recoveryAttempt && /^[a-f0-9]{64}$/.test(m.token) ? m.token : null;
       const returning = given && room.roster.find((r) => r.tokenHash === hashed(given));
+      if (recoveryAttempt && !returning) return send(ws, { t: 'err', code: 'INVALID_RECOVERY',
+        msg: 'Could not recover your previous seat. The saved token is no longer valid. Select BEGIN for a new room or JOIN with an invite code.' });
       if (returning) { playerId = returning.id; recoveryToken = given; }
       else if (room.players.size >= MAX_PLAYERS) return send(ws, { t: 'err', msg: 'That room is full. Reconnect with the same browser to reclaim your seat.' });
     } else {
