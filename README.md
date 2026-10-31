@@ -422,3 +422,15 @@ temporary. See PRODUCTION_STORAGE.md.
   Later healing and warrior-vision clips still play as the story progresses.
 - A PLAY VIDEO button appears if a browser rejects autoplay, especially on
   phones. The synchronized opening cutscene has a 165-second fail-safe.
+
+### v0.9.6: Cinematic controls (phone and desktop)
+
+During each video the story information card appears briefly and fades after
+approximately 4.2 seconds of actual playback, leaving the footage unobstructed.
+Three permanent buttons on the right side control video volume (or narration
+on illustrations), skip the remaining cinematic sequence, and show/hide the
+story panel. Restoring details pins the panel until dismissed or the next scene.
+If mobile autoplay is blocked, the story panel stays visible with PLAY VIDEO.
+Illustrated stills retain their narration text and Continue button, because
+those scenes do not advance automatically. The original WebSocket 'seen' flow,
+multiplayer waiting, cutscene order and full 41-second prologue are unchanged.
