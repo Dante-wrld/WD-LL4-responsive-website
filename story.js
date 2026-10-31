@@ -68,7 +68,7 @@ function reel() {
 const scenes = (key) => (SCENES[key] || []).map((s) => Object.assign({}, s));
 
 /** Longest a barrier will wait on somebody who has stopped answering. */
-const STORY_TIMEOUT = 110;
+const STORY_TIMEOUT = 165;
 
 /** Every media file a scene can ask for, so a test can prove they all exist. */
 function mediaUsed() {
