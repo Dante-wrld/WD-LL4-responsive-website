@@ -1066,13 +1066,14 @@ function drawWorld() {
   for (const [, b] of B) {
     if (b.st === 1 || b.st === 2) continue;
     const alert = b.st === 3;
-    const half = alert ? 1.0 : b.cone, N = 16, R = b.notice;
+    // Render the exact server-authorized detection area, including alerts.
+    const half = b.cone, N = 16, R = b.notice;
     ctx.beginPath(); ctx.moveTo(b.x, b.y);
     for (let n = 0; n <= N; n++) { const a = b.a - half + 2 * half * (n / N), d = castRay(b.x, b.y, a, R); ctx.lineTo(b.x + Math.cos(a) * d, b.y + Math.sin(a) * d); }
     ctx.closePath();
     ctx.fillStyle = alert ? '#ff4d4d' : b.ignoring ? '#6f6f80' : ((ROLES[b.role] || {}).col || '#fff');
-    ctx.globalAlpha = alert ? 0.15 : 0.07; ctx.fill();
-    ctx.globalAlpha = alert ? 0.4 : 0.16; ctx.lineWidth = 1; ctx.strokeStyle = ctx.fillStyle; ctx.stroke();
+    ctx.globalAlpha = alert ? 0.11 : 0.06; ctx.fill();
+    ctx.globalAlpha = alert ? 0.32 : 0.14; ctx.lineWidth = 1; ctx.strokeStyle = ctx.fillStyle; ctx.stroke();
     ctx.globalAlpha = 1;
   }
 
