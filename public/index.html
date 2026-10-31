@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Chaminuka — The Exiled Prophet</title>
 <style>
   :root{--gold:#e8b84a;--ink:#07060c;--panel:#17131f;--line:#3b3354;--txt:#efe6d2;--dim:#9a90b0}
@@ -1329,8 +1329,9 @@ try {
     $('resumeRoom').onclick = () => connect(saved.name, saved.code, saved.token);
   }
 } catch (_) {}
-window.__vessel = { connect, send, state: () => ({ phase, map: !!map, snap: !!snap, players: P.size, bodies: B.size, me, myId }) };
+window.__vessel = { connect, send, state: () => ({ phase, act, map: !!map, snap: !!snap, players: P.size, bodies: B.size, me, myId }) };
 })();
 </script>
+<script src="/touch-controls.js" defer></script>
 </body>
 </html>
