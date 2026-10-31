@@ -14,7 +14,7 @@ npm start
 ```
 
 Open **http://localhost:3000**, enter a name, **Begin**, share the four-letter code.
-Up to four players. Tests: `npm test` (123 including guard tuning, recovery/expiry, release and restart tests).
+Up to four players. Tests: `npm test` (125 including guard tuning, recovery/expiry, mobile input, release and restart tests).
 
 ---
 
@@ -394,3 +394,18 @@ expires on the free hosted demo, the Resume button is cleared and the player see
 start over. Room checkpoints and leaderboards continue to use local JSON files and **will
 reset** on Render free-tier instance shutdown/replacement. See `PRODUCTION_STORAGE.md`
 for limitations and the durable database migration path.
+
+### v0.9.4: Phone/tablet controls
+
+Adapted the touch controls from the uploaded Chaminuka v0.9 package without reverting
+v0.9.3 room recovery, individual builds, or guard balance. On a phone, turn to
+landscape and use the floating left joystick for movement and the buttons on
+the right for actions. In Act I, WEAR/INFANT uses E/Space, ABILITY uses F,
+POSSESS uses E, and RUN holds Shift. In Act II use ATTACK (J), DODGE (K),
+and SPIRIT (E); drag over the game to aim. The title screen also has a
+TOUCH CONTROLS toggle for testing on a laptop.
+
+The uploaded package's experimental Postgres adapter is not enabled on this
+service: no durable database is configured and that package did not include
+the required pg driver. Scores and checkpoints on Render's free plan remain
+temporary. See PRODUCTION_STORAGE.md.
