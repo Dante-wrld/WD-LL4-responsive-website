@@ -110,7 +110,12 @@
     updateVolume();
   });
   skip.addEventListener('click', () => {
-    if (!skipButton.disabled) skipButton.click(); // keep existing multiplayer seen/skip logic
+    if (!skipButton.disabled) {
+      skipButton.click(); // keep existing multiplayer seen/skip logic
+      pinned = true;
+      cancelTimer();
+      setPanel(true); // if other players are watching, show the waiting message
+    }
   });
   details.addEventListener('click', () => {
     pinned = story.classList.contains('story-clean');
@@ -121,7 +126,6 @@
 
   video.addEventListener('playing', scheduleHide);
   video.addEventListener('pause', () => { cancelTimer(); });
-  storyIndex.addEventListener('click', () => {}); // index itself remains non-interactive
   new MutationObserver(() => newScene()).observe(storyIndex, { childList: true, subtree: true, characterData: true });
   new MutationObserver(visibilityChanged).observe(story, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(reactToPlayButton).observe(playButton, { attributes: true, attributeFilter: ['class'] });
