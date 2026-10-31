@@ -7,21 +7,24 @@
  if(!stage||!canvas||!title)return;
  const style=document.createElement('style');
  style.textContent=[
- '#chamTouch{position:absolute;inset:0;z-index:24;pointer-events:none;display:none;touch-action:none}',
+ '#chamTouch{position:fixed;inset:auto 0 0 0;height:var(--touch-h);z-index:40;pointer-events:none;display:none;touch-action:none;background:linear-gradient(#0b0b18e8,#0d0d1afa);box-shadow:0 -2px 0 #45395f66}',
  '#chamTouch.live{display:block}',
- '#chamStickZone{position:absolute;left:0;bottom:0;width:48%;height:70%;pointer-events:auto;touch-action:none}',
- '#chamStick{position:absolute;width:112px;height:112px;margin:-56px 0 0 -56px;border:2px solid #bcdfff60;border-radius:50%;background:#0c102681;opacity:0;pointer-events:none}',
- '#chamStick.show{opacity:1}',
- '#chamNub{position:absolute;left:50%;top:50%;width:45px;height:45px;margin:-22.5px 0 0 -22.5px;border-radius:50%;background:#a9dafad9}',
- '#chamActions{position:absolute;right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:flex-end;gap:7px;pointer-events:auto}',
+ '#chamStickZone{position:absolute;left:0;bottom:0;width:43%;height:100%;pointer-events:auto;touch-action:none}',
+ '#chamStick{position:absolute;left:24%;top:50%;width:88px;height:88px;margin:-44px 0 0 -44px;border:2px solid #bcdfff80;border-radius:50%;background:#172337b0;opacity:.8;pointer-events:none}',
+ '#chamStick.show{opacity:1;box-shadow:0 0 18px #6aaeda40}',
+ '#chamNub{position:absolute;left:50%;top:50%;width:39px;height:39px;margin:-19.5px 0 0 -19.5px;border-radius:50%;background:#a9dafad9}',
+ '#chamActions{position:absolute;right:max(14px,env(safe-area-inset-right));bottom:max(7px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:auto}',
  '#chamActions .chamRow{display:flex;gap:7px}',
- '.chamButton{font:600 11px ui-monospace,monospace;min-width:76px;padding:11px 10px;border-radius:11px;border:2px solid #ae956a;background:#21192fe8;color:#f5e4be;touch-action:none;user-select:none;-webkit-user-select:none}',
+ '.chamButton{font:600 10px ui-monospace,monospace;min-width:76px;padding:9px 9px;border-radius:11px;border:2px solid #ae956a;background:#21192fe8;color:#f5e4be;touch-action:none;user-select:none;-webkit-user-select:none}',
  '.chamButton.primary{min-width:94px;background:#684a24e8;border-color:#e8b84a}',
  '.chamButton.down{background:#4d376b}',
  '#chamRotate{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;background:#080711f2;color:#f5e4be;text-align:center;padding:20px;pointer-events:auto;font:16px ui-monospace,monospace}',
  '#chamRotate.show{display:flex}',
  '#chamToggle{font-size:11px;padding:9px 12px}',
- '@media(max-height:440px){.chamButton{font-size:10px;padding:8px 9px;min-width:66px}.chamButton.primary{min-width:85px}#chamStick{transform:scale(.83)}}'
+ ':root{--touch-h:clamp(98px,23dvh,132px)}',
+ 'body.cham-touch-live #wrap{align-items:flex-start;justify-content:center}',
+ 'body.cham-touch-live #stage{width:min(100vw,calc((100dvh - var(--touch-h))*16/9));height:min(calc(100vw*9/16),calc(100dvh - var(--touch-h)))}',
+ '@media(max-height:440px){:root{--touch-h:98px}.chamButton{font-size:9px;padding:7px 8px;min-width:65px}.chamButton.primary{min-width:83px}}'
  ].join('\n');
  document.head.appendChild(style);
  const layer=document.createElement('div');layer.id='chamTouch';
@@ -30,7 +33,7 @@
  '<button class="chamButton" id="chamC" type="button">POSSESS</button></div>'+
  '<div class="chamRow"><button class="chamButton primary" id="chamA" type="button">WEAR</button>'+
  '<button class="chamButton" id="chamD" type="button">RUN</button></div></div>';
- stage.appendChild(layer);
+ document.body.appendChild(layer);
  const rotate=document.createElement('div');rotate.id='chamRotate';
  rotate.innerHTML='<div><div style="font-size:40px;margin-bottom:15px">↻</div>'+
  '<b>TURN YOUR PHONE SIDEWAYS</b><p style="font-size:12px;max-width:24em">Rotate to landscape to make room for the joystick and game action buttons.</p></div>';
@@ -67,7 +70,7 @@
  zone.addEventListener('pointerdown',e=>{
   if(!live||stickId!==null)return;
   e.preventDefault();stickId=e.pointerId;ox=e.clientX;oy=e.clientY;
-  const r=stage.getBoundingClientRect();
+  const r=zone.getBoundingClientRect();
   stick.style.left=(ox-r.left)+'px';stick.style.top=(oy-r.top)+'px';
   nub.style.transform='translate(0px,0px)';stick.classList.add('show');
   zone.setPointerCapture(e.pointerId);
@@ -119,11 +122,12 @@
   const next=!!(enabled&&s?.phase==='run'&&s.me);
   if(live&&!next)reset();
   live=next;layer.classList.toggle('live',live);
+  document.body.classList.toggle('cham-touch-live',live);
   stage.style.touchAction=live?'none':'';
   toggle.textContent='TOUCH CONTROLS: '+(enabled?'ON':'OFF');
   rotate.classList.toggle('show',!!(live&&innerHeight>innerWidth*1.08));
   const worn=s?.me?.form==='worn';
-  get('chamA').textContent=act===2?'ATTACK':(worn?'INFANT':'WEAR');
+  get('chamA').textContent=act===2?'ATTACK':(worn?'CARRY':'WEAR');
   get('chamB').textContent=act===2?'DODGE':'ABILITY';
   get('chamC').textContent=act===2?'SPIRIT':'POSSESS';
   get('chamD').textContent=act===2?'':'RUN'+(runDown?': ON':'');
