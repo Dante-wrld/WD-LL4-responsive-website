@@ -444,3 +444,14 @@ where you touch the left side, and the original action buttons are overlaid
 at the lower right. The stage is no longer shrunk to make room for a dock.
 All v0.9.6 cinematic controls, the full opening video, the shorter NPC patrols,
 room recovery, multiplayer and character builds remain unchanged.
+
+### v0.9.8: Smaller palace guard sight cones
+
+Regular palace witnesses now detect up to 120 pixels in a 0.30-radian half-cone
+(about 34.4 degrees total). Alarmed guards use 150 pixels and a 0.48-radian
+half-cone (about 55 degrees total), rather than the old oversized red wedge.
+Within 30 pixels, a guard still notices someone even outside the cone.
+The renderer uses the server's range and half-angle directly in **both** states,
+so the visible cones represent the same detection limits as the game rules.
+Alert pursuit and the existing guard movement speed are unchanged.
+The overlays have slightly lower opacity to reduce visual clutter.
