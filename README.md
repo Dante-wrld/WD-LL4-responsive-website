@@ -467,3 +467,20 @@ If the snapshot does not arrive, the client requests a throttled resync.
 The same map+snapshot recovery applies to reconnecting players.
 This fixes the empty-arena transition while preserving the full story,
 mobile controls and existing guard visibility adjustments.
+
+### v0.9.10: Escape through possession
+
+An earlier strike from a borrowed guard no longer exposes every later guard
+that Chaminuka possesses. Detection tracks the **current** borrowed identity,
+and a new, unexposed disguise breaks the direct lock on that identity.
+
+Once the room is alerted, ordinary frontal possession of a hunting guard is
+still blocked. But an invisible spirit can approach the guard's back within
+40px and borrow him; the Bold affinity retains its original advantage. Guards
+searching for the abandoned original body now use a wider forward search
+arc instead of an omniscient 360-degree view.
+
+The escape is deliberately not invulnerability: the original body remains
+unattended and can be attacked if discovered; an already committed blow can
+still land; attacking from the new disguise exposes it. Palace stealth and
+the v0.9.9 shrine synchronization fixes are unchanged.
