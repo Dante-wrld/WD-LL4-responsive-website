@@ -18,12 +18,12 @@ const px = (t) => t * TILE + TILE / 2;
  * player simply kills him from a step beyond his threshold and takes nothing —
  * which is precisely how holding the attack button used to win fights. */
 const FOES = {
-  spearman: { name: 'Spearman', hp: 2, speed: 132, commit: 78, reach: 58, dmg: 1, tell: 0.42, swing: 0.12, rest: 0.5,
-    notice: 250, cone: 0.85, col: '#c2714f', ranged: false },
-  hunter: { name: 'Hunter', hp: 1, speed: 120, commit: 300, reach: 300, dmg: 1, tell: 0.7, swing: 0.1, rest: 1.2,
-    notice: 340, cone: 0.6, col: '#8f9f5a', ranged: true, keep: 190 },
-  captain: { name: 'Captain of the Guard', hp: 7, speed: 118, commit: 100, reach: 78, dmg: 2, tell: 0.95, swing: 0.2, rest: 1.05,
-    notice: 300, cone: 1.0, col: '#b05070', ranged: false },
+  spearman: { name: 'Spearman', hp: 2, speed: 112, commit: 78, reach: 58, dmg: 1, tell: 0.42, swing: 0.12, rest: 0.5,
+    notice: 205, cone: 0.62, col: '#c2714f', ranged: false },
+  hunter: { name: 'Hunter', hp: 1, speed: 100, commit: 300, reach: 300, dmg: 1, tell: 0.7, swing: 0.1, rest: 1.2,
+    notice: 275, cone: 0.44, col: '#8f9f5a', ranged: true, keep: 190 },
+  captain: { name: 'Captain of the Guard', hp: 7, speed: 102, commit: 100, reach: 78, dmg: 2, tell: 0.95, swing: 0.2, rest: 1.05,
+    notice: 245, cone: 0.72, col: '#b05070', ranged: false },
 };
 
 const W = 30, H = 19;
