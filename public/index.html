@@ -152,6 +152,7 @@
       <div id="storyText"></div>
       <div id="storyExtra" style="margin-top:10px;font-size:11px;text-align:left"></div>
       <div id="storyActions">
+        <button id="storyPlay" class="hidden primary" type="button">PLAY VIDEO</button>
         <button id="storyNext" class="primary">CONTINUE</button>
         <button id="storySkip">SKIP CUTSCENE</button>
         <button id="storyVoice">NARRATION: OFF</button>
@@ -377,6 +378,7 @@ function drawScene() {
   $('storyText').textContent = s.text || '';
   $('storyShot').style.backgroundImage = s.still ? `url('/assets/${s.still}.webp')` : 'none';
   $('storySound').classList.toggle('hidden', !s.video);
+  $('storyPlay').classList.add('hidden');
   const v = sv();
   stopVoice();
   if (s.video) {
@@ -387,8 +389,13 @@ function drawScene() {
     // a clip can be cut short on purpose: the long version is in the preview reel
     v.onended = () => nextScene();
     v.ontimeupdate = () => { if (s.to && v.currentTime >= s.to) { v.ontimeupdate = null; nextScene(); } };
+    v.onplay = () => $('storyPlay').classList.add('hidden');
     const go = v.play();
-    if (go && go.catch) go.catch(() => { /* autoplay refused: the still is already behind it */ });
+    if (go && go.catch) go.catch(() => {
+      // Mobile browsers may block autoplay. Offer an explicit tap instead of
+      // silently showing a still image and making the footage seem missing.
+      if (storyScenes[storyAt] === s) $('storyPlay').classList.remove('hidden');
+    });
   } else {
     v.classList.add('hidden'); v.onended = null; v.ontimeupdate = null;
     try { v.pause(); } catch (e) {}
@@ -402,7 +409,8 @@ function nextScene() {
 /** Done watching. In a run that means telling the server; in the preview it just closes. */
 function finishStory() {
   const v = sv();
-  v.onended = null; v.ontimeupdate = null;
+  v.onended = null; v.ontimeupdate = null; v.onplay = null;
+  $('storyPlay').classList.add('hidden');
   try { v.pause(); } catch (e) {}
   stopVoice();
   if (storyKey === 'preview') { show(phase === 'title' ? 'title' : null); return; }
@@ -446,6 +454,13 @@ let PREVIEW = [];
 // socket exists; the join message refreshes it afterwards
 fetch('/reel.json').then((r) => r.json()).then((r) => { if (Array.isArray(r)) PREVIEW = r; })
   .catch(() => { $('previewStory').classList.add('hidden'); });
+$('storyPlay').onclick = () => {
+  const v = sv();
+  const play = v.play();
+  if (play && play.catch) play.catch(() => {
+    $('storyWait').textContent = 'Your browser blocked video playback. Tap again or choose Continue.';
+  });
+};
 $('storyNext').onclick = () => nextScene();
 $('storySkip').onclick = () => finishStory();
 $('previewStory').onclick = () => playPreview();
