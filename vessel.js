@@ -45,7 +45,12 @@ const S_DECAY_UNSEEN = 9;      // per second once nobody is looking
 const S_DECAY_SEEN = 4;        // per second while seen but behaving
 const LOITER_AFTER = 4;
 // --- being noticed ----------------------------------------------------------
-const NOTICE = 235, NOTICE_CONE = 0.72;
+// Palace patrols have a narrower forward view and a shorter notice distance.
+// The cone is a HALF-angle in radians (0.50 => 57.3-degree full arc).
+const NOTICE = 180, NOTICE_CONE = 0.50;
+const NOTICE_CLOSE = 40;       // nearby movement still draws attention outside the cone
+const PATROL_PACE = 0.60;      // relative to a player walking at WALK
+const ALERT_PACE = 0.84;       // guards still close distance after a confirmed alarm
 const ALERT_CALM = 25;         // an alerted body settles down again after this
 const ALERT_REACH = 40;        // close enough to lay hands on you
 const COOLDOWN = { priest: 25, soldier: 18, servant: 18, captain: 35 };
@@ -301,7 +306,7 @@ class Room {
       if (this.time < b.ignoreUntil) continue;
       const d = hyp(b.x, b.y, x, y);
       if (d > NOTICE) continue;
-      if (b.state !== 'alert' && angDiff(b.aim, Math.atan2(y - b.y, x - b.x)) > NOTICE_CONE && d > 60) continue;
+      if (b.state !== 'alert' && angDiff(b.aim, Math.atan2(y - b.y, x - b.x)) > NOTICE_CONE && d > NOTICE_CLOSE) continue;
       if (!los(this.map, b.x, b.y, x, y)) continue;
       out.push(b);
     }
@@ -451,7 +456,7 @@ class Room {
         }
         continue;
       }
-      let gx, gy, speed = WALK * 0.78;
+      let gx, gy, speed = WALK * PATROL_PACE;
       if (b.state === 'alert') {
         b.alertT -= DT;
         if (b.alertT <= 0) { b.state = 'idle'; b.suspX = 0; continue; }
@@ -464,7 +469,7 @@ class Room {
         }
         const gxx = tgt ? tgt.x : (b.suspX || b.homeX), gyy = tgt ? tgt.y : (b.suspY || b.homeY);
         const a = Math.atan2(gyy - b.y, gxx - b.x);
-        gx = Math.cos(a); gy = Math.sin(a); b.aim = a; speed = WALK;
+        gx = Math.cos(a); gy = Math.sin(a); b.aim = a; speed = WALK * ALERT_PACE;
         if (tgt && td < ALERT_REACH) {              // laid hands on the body you are wearing
           const p = tgt; this.leaveBody(p, 'burn');
         }
@@ -604,5 +609,5 @@ class Room {
 }
 
 module.exports = { Room, ROLES, TICK, DT, TILE, palace, tileAt, solidFor, blocked, los, zoneAt, doorAt,
-  POSSESS_TIME, SPIRIT_MAX, SUSP_MAX, SLUMP_TIME, STUTTER_AT, NOTICE, WALK, HURRY,
+  POSSESS_TIME, SPIRIT_MAX, SUSP_MAX, SLUMP_TIME, STUTTER_AT, NOTICE, NOTICE_CONE, NOTICE_CLOSE, PATROL_PACE, ALERT_PACE, WALK, HURRY,
   AWARE_MAX, AWARE_BURN, AWARE_STEPS, AFFINITIES, PROPHECY, SWIFT_UNDER, FRUGAL_BODIES, UNSEEN_UNDER };
