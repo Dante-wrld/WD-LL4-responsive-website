@@ -30,13 +30,11 @@ at the front:
 | the road is walked | the sanctuary, the sixteen years, what he grows into |
 | the shrine is held | a glimpse of the battles still ahead |
 
-Twelve seconds of video stand between a new player and their first decision. The
-full twenty-nine-second cut lives in **WATCH STORY PREVIEW** on the title screen,
-for anybody who wants it.
-
-Every cutscene is **skippable**, every one has subtitles, and optional narration
-reads them aloud through the browser's own voice. Video audio is **off by default**,
-which is what lets autoplay work at all. Each video scene has a still behind it, so
+The full 41 seconds of the original opening video play before Act I: the original
+29-second kingdom sequence and its 12-second continuation are shown in order.
+The opening can still be skipped by each player; the multiplayer group waits
+for all players to finish or skip (with a longer safety timeout). Video starts
+muted so mobile browsers can autoplay when supported. Each video scene has a still behind it, so
 a browser that refuses to play still shows you something — a test enforces that.
 
 **The barrier.** A cutscene holds the whole party: the palace is not built until
@@ -409,3 +407,18 @@ The uploaded package's experimental Postgres adapter is not enabled on this
 service: no durable database is configured and that package did not include
 the required pg driver. Scores and checkpoints on Render's free plan remain
 temporary. See PRODUCTION_STORAGE.md.
+
+### v0.9.5: Mobile presentation, local patrols, full opening cinematic
+
+- The touchscreen controls now sit in a dedicated translucent bottom dock,
+  so they no longer cover characters or the game world. The joystick base is
+  visible before the first touch. Landscape mode leaves room for the canvas.
+- In the palace, at least ten residents stay at their posts; seven have
+  short patrols of no more than two tiles in each direction. When alerted,
+  guards can still pursue beyond their normal posts. Guard vision remains
+  at the balanced v0.9.1 settings.
+- The complete 41-second original opening plays before the palace escape,
+  using both existing MP4 segments in order, with no 12-second truncation.
+  Later healing and warrior-vision clips still play as the story progresses.
+- A PLAY VIDEO button appears if a browser rejects autoplay, especially on
+  phones. The synchronized opening cutscene has a 165-second fail-safe.
