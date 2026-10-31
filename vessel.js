@@ -46,9 +46,11 @@ const S_DECAY_SEEN = 4;        // per second while seen but behaving
 const LOITER_AFTER = 4;
 // --- being noticed ----------------------------------------------------------
 // Palace patrols have a narrower forward view and a shorter notice distance.
-// The cone is a HALF-angle in radians (0.50 => 57.3-degree full arc).
-const NOTICE = 180, NOTICE_CONE = 0.50;
-const NOTICE_CLOSE = 40;       // nearby movement still draws attention outside the cone
+// Each cone is a HALF-angle in radians. Regular view spans ~34 degrees.
+// Keep alarmed guards more watchful, but never draw a wider cone than detects.
+const NOTICE = 120, NOTICE_CONE = 0.30;
+const ALERT_NOTICE = 150, ALERT_NOTICE_CONE = 0.48;
+const NOTICE_CLOSE = 30;       // anyone right beside a guard still gets noticed
 const PATROL_PACE = 0.60;      // relative to a player walking at WALK
 const ALERT_PACE = 0.84;       // guards still close distance after a confirmed alarm
 const ALERT_CALM = 25;         // an alerted body settles down again after this
@@ -305,8 +307,11 @@ class Room {
       if (b.id === ignoreId) continue;
       if (this.time < b.ignoreUntil) continue;
       const d = hyp(b.x, b.y, x, y);
-      if (d > NOTICE) continue;
-      if (b.state !== 'alert' && angDiff(b.aim, Math.atan2(y - b.y, x - b.x)) > NOTICE_CONE && d > NOTICE_CLOSE) continue;
+      const alerted = b.state === 'alert';
+      const reach = alerted ? ALERT_NOTICE : NOTICE;
+      const half = alerted ? ALERT_NOTICE_CONE : NOTICE_CONE;
+      if (d > reach) continue;
+      if (angDiff(b.aim, Math.atan2(y - b.y, x - b.x)) > half && d > NOTICE_CLOSE) continue;
       if (!los(this.map, b.x, b.y, x, y)) continue;
       out.push(b);
     }
@@ -577,7 +582,9 @@ class Room {
         s: Math.round(p.susp), h: Math.round(p.hostT), on: p.connected ? 1 : 0,
       })),
       b: this.bodies.map((b) => [b.id, b.role, rd(b.x), rd(b.y), +b.aim.toFixed(2), ST[b.state],
-        b.wornBy, this.time < b.ignoreUntil ? 1 : 0, rd(NOTICE), +NOTICE_CONE.toFixed(2)]),
+        b.wornBy, this.time < b.ignoreUntil ? 1 : 0,
+        rd(b.state === 'alert' ? ALERT_NOTICE : NOTICE),
+        +(b.state === 'alert' ? ALERT_NOTICE_CONE : NOTICE_CONE).toFixed(2)]),
       aw: Math.round(this.aware), rf: this.run ? this.run.reinforced : 0,
       inf: [rd(this.infant.x), rd(this.infant.y), this.infant.carrier],
       infz: (zoneAt(this.map, this.infant.x, this.infant.y) || { name: 'the great hall' }).name,
@@ -609,5 +616,6 @@ class Room {
 }
 
 module.exports = { Room, ROLES, TICK, DT, TILE, palace, tileAt, solidFor, blocked, los, zoneAt, doorAt,
-  POSSESS_TIME, SPIRIT_MAX, SUSP_MAX, SLUMP_TIME, STUTTER_AT, NOTICE, NOTICE_CONE, NOTICE_CLOSE, PATROL_PACE, ALERT_PACE, WALK, HURRY,
+  POSSESS_TIME, SPIRIT_MAX, SUSP_MAX, SLUMP_TIME, STUTTER_AT,
+  NOTICE, NOTICE_CONE, ALERT_NOTICE, ALERT_NOTICE_CONE, NOTICE_CLOSE, PATROL_PACE, ALERT_PACE, WALK, HURRY,
   AWARE_MAX, AWARE_BURN, AWARE_STEPS, AFFINITIES, PROPHECY, SWIFT_UNDER, FRUGAL_BODIES, UNSEEN_UNDER };
