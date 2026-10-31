@@ -526,6 +526,7 @@ test('once you strike from inside one of theirs, their blows wound that body, no
   tap(r, p, 'use');
   assert.equal(p.form, 'worn');
   r.betrayed = true;
+  p.struckWhileWorn = true; // The current borrowed identity was actually exposed.
   const mark = r.marks().find((m) => m.kind === 'worn');
   assert.ok(mark, 'the body you are wearing is a thing they can hit');
   const hpWas = p.hp, bodyWas = mine.hp;
@@ -542,6 +543,7 @@ test('and when that body fails you are spat out into the open', () => {
   p.x = mine.x; p.y = mine.y;
   tap(r, p, 'use');
   r.betrayed = true;
+  p.struckWhileWorn = true; // The current borrowed identity was actually exposed.
   const mark = r.marks().find((m) => m.kind === 'worn');
   r.strikeMark(mark, 99, 'test');
   assert.ok(mine.dead, 'the body is finished');
