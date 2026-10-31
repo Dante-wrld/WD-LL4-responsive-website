@@ -183,7 +183,8 @@ test('a full suspicion meter burns the body and rouses the wing', () => {
   p.x = worn.x; p.y = worn.y; tap(r, p, 'use');
   p.x = 5 * TILE; p.y = 6 * TILE;
   r.tick();
-  stare(near, p, 150);
+  // A close witness should still notice this obvious violation with a smaller FOV.
+  stare(near, p, 105);
   assert.ok(r.suspicionRate(p).rate > 0, 'he is being noticed');
   p.susp = SUSP_MAX - 0.2;
   r.setInput(p.id, {}); r.tick(); r.tick();
