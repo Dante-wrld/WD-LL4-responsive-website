@@ -142,7 +142,11 @@
     <div id="boards" style="margin:12px auto;max-width:40em;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:11px;color:#9fb0c0"></div>
     <div class="sub" style="font-size:11px;max-width:45em">Leaderboard notice: scores on the free-hosted demo are temporary and may reset after server inactivity or an update. Permanent competitive rankings require durable storage.</div>
     <div id="nextup" style="margin:10px auto;max-width:34em;font-size:12px;color:#8f9fb0"></div>
-    <div class="row"><button id="again" class="primary">AGAIN</button></div>
+    <div class="row">
+      <button id="dungeonGo" class="primary hidden" type="button">ENTER THE ANCESTRAL DUNGEON</button>
+      <button id="again" class="primary">AGAIN</button>
+    </div>
+    <div id="dungeonWait" class="sub" style="font-size:12px"></div>
   </div>
   <div id="story" class="screen hidden" role="dialog" aria-label="Story cinematic">
     <video id="storyVideo" class="hidden" preload="metadata" playsinline muted aria-label="Cinematic footage"></video>
@@ -318,6 +322,8 @@ function onMsg(m) {
  *  of the prophecy, what you mastered, where you sit on the boards, and what is
  *  coming next. Losing costs you the night, not the story. */
 function endCard(m, won) {
+  $('dungeonGo').classList.add('hidden');
+  $('dungeonWait').textContent = '';
   phase = won ? 'won' : 'lost';
   $('wonhead').textContent = won ? 'THE CHILD IS AWAY' : 'THE HOUSE IS ROUSED';
   $('wonhead').style.color = won ? '' : '#ff8b7a';
@@ -522,7 +528,9 @@ const BOONS = {
 function onGift(m) {
   phase = 'gift';
   const host = amHost();
-  $('gifthead').textContent = `Chamber ${m.chamber} of ${m.of} behind you.`;
+  $('gifthead').textContent = m.chapter === 'dungeon'
+    ? `Dungeon ${m.chamber} of ${m.of} cleared. Choose equipment.`
+    : `Chamber ${m.chamber} of ${m.of} behind you.`;
   $('giftopts').innerHTML = (m.offer || []).map((o) => `
     <button class="giftopt" data-key="${esc(o.key)}" ${host ? '' : 'disabled'} style="flex:1 1 15em;min-width:13em;text-align:left;
       padding:12px 14px;background:#15121f;border:2px solid #3b3354;color:#e9e4f5;cursor:${host ? 'pointer' : 'default'}">
@@ -546,14 +554,20 @@ function onDown(m) {
 }
 function onDone(m) {
   phase = 'done';
-  $('wonhead').textContent = 'THE SHRINE HOLDS';
+  const dungeon = m.chapter === 'dungeon';
+  $('wonhead').textContent = dungeon ? 'THE ASH WARLORD FALLS' : 'THE SHRINE HOLDS';
   $('wonhead').style.color = '';
-  $('wontext').innerHTML = `${esc(m.by)} held Mavambo in <b>${Math.floor(m.secs / 60)}m ${Math.round(m.secs % 60)}s</b>, `
+  $('wontext').innerHTML = `${esc(m.by)} ${dungeon ? 'conquered the Ancestral Dungeon' : 'held Mavambo'} in <b>${Math.floor(m.secs / 60)}m ${Math.round(m.secs % 60)}s</b>, `
     + `<b>${m.kills}</b> of the king\u2019s men down`
     + (m.deaths ? `, falling <b>${m.deaths}</b> ${m.deaths === 1 ? 'time' : 'times'} on the way.` : ', without once falling.');
   $('prophecy').textContent = m.line ? '\u201c' + m.line + '\u201d' : '';
-  $('earned').innerHTML = (m.gifts || []).map((g) => `<span style="color:var(--gold)">\u25c6 ${esc(g)}</span>`).join('  ')
-    || '<span style="color:#7f8fa0">No gifts taken.</span>';
+  $('earned').innerHTML = (dungeon ? (m.equipment || []).map((g) => Object.values(g).filter(Boolean).join(' / '))
+    : (m.gifts || [])).map((g) => `<span style="color:var(--gold)">\u25c6 ${esc(g)}</span>`).join('  ')
+    || '<span style="color:#7f8fa0">No equipment or gifts taken.</span>';
+  $('dungeonGo').classList.toggle('hidden', !m.canDungeon || !amHost());
+  $('dungeonGo').disabled = !m.canDungeon || !amHost();
+  $('dungeonWait').textContent = m.canDungeon && !amHost()
+    ? 'Your host can open the next six-room dungeon quest.' : '';
   $('nextup').textContent = m.next || '';
   if (m.board) drawBoards(m.board);
   clearTimeout(bannerT); $('banner').classList.remove('show');
@@ -562,6 +576,11 @@ function onDone(m) {
     $('storyWait').textContent = 'The road stops here \u2014 for now.'; show('story'); drawScene(); }, 2600); }
 }
 $('rise').onclick = () => send({ t: 'again' });
+$('dungeonGo').onclick = () => {
+  $('dungeonGo').disabled = true;
+  $('dungeonWait').textContent = 'Entering the Ancestral Dungeon…';
+  send({ t: 'dungeon' });
+};
 $('jumpgo').onclick = () => { $('jumpgo').disabled = true; send({ t: 'go' }); };
 
 function onLobby(m) {
@@ -895,7 +914,7 @@ function drawFoe(f) {
 function drawHUD2() {
   if (!me2) return;
   txt(map.name, W / 2, 22, 13, '#e8b84a', 'center');
-  txt(`chamber ${me2.chamber} of 4 \u00b7 ${me2.left} still standing`, W / 2, 38, 10,
+  txt(`${me2.chapter === 'dungeon' ? 'dungeon' : 'chamber'} ${me2.chamber} of ${me2.total || 4} \u00b7 ${me2.left} still standing`, W / 2, 38, 10,
     me2.left ? '#9fb0c0' : '#79c7a4', 'center');
 
   // hearts
@@ -906,6 +925,11 @@ function drawHUD2() {
     if (on && me2.hp === 1) { ctx.globalAlpha = 0.4 + Math.sin(T * 8) * 0.3; ctx.beginPath(); ctx.arc(x, y, 10, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
   }
   if (me2.refusals) txt(`\u25c6 a debt owed \u2014 one death refused`, 18, 54, 10, '#c9a24a');
+  const boss = map.boss && [...Fs.values()].find(f => f.kind === map.boss);
+  if (boss) {
+    txt((FOE[boss.kind] || {name:boss.kind}).name.toUpperCase(), W / 2, 56, 11, '#ffb575', 'center');
+    bar(W / 2 - 100, 65, 200, 8, boss.hp / boss.hpMax, '#df7457');
+  }
 
   // what he is: himself, loose, or wearing one of theirs
   const formLine = me2.form === 'self' ? 'CHAMINUKA' : me2.form === 'spirit' ? 'UNHOUSED' : `WEARING ${String(me2.wornName || '').toUpperCase()}`;
@@ -946,6 +970,11 @@ function drawHUD2() {
   txt('ROLL', W - 66, H - 54, 11, dodgeReady ? '#9ad6ff' : '#5a5370', 'center');
   txt(dodgeReady ? 'K / SHIFT' : `${me2.dodgeCd}s`, W - 66, H - 38, 9, '#9a90b0', 'center');
 
+  // Growth remains readable while fighting, especially on a small phone screen.
+  txt(`LV ${me2.level || 1}  XP ${me2.xp || 0}/${me2.nextXp || 50}  POWER ${me2.attack || 1}`,
+    18, H - 47, 10, '#ffd98a');
+  if (me2.gear && me2.gear.length)
+    txt('GEAR: ' + me2.gear.map(g => g.name).join(' / '), 18, H - 61, 9, '#79c7a4');
   // what he carries
   const carry = (me2.carried || []).map((c) => '\u25c6 ' + c.name).concat((me2.gifts || []).map((g) => '\u2726 ' + g.name));
   if (carry.length) txt(carry.join('   '), 18, H - 14, 10, '#9ad6ff');
