@@ -98,3 +98,28 @@ button.primary:hover{background:#a56c37}
 @media(prefers-reduced-motion:reduce){
   button,.screen,.screen *{transition:none!important;scroll-behavior:auto!important}
 }
+
+
+/* Original illustrated boss-arrival card, UI-only and nonblocking. */
+#bossIntro {
+  position:absolute;z-index:12;top:20%;left:50%;
+  width:min(78%,650px);transform:translateX(-50%);
+  display:flex;align-items:center;gap:18px;padding:12px 17px;
+  border:3px solid #c29a68;background:#100d1fec;
+  box-shadow:0 0 0 4px #171226,8px 8px #060611;
+  pointer-events:none;
+}
+#bossIntro.hidden{display:none!important}
+#bossPortrait{height:108px;width:92px;object-fit:contain;image-rendering:pixelated;
+  border:2px solid #756182;flex-shrink:0}
+.bossLore{min-width:0;flex:1;text-align:left}
+.bossTag{letter-spacing:.23em;color:#d1ab7d;font-size:10px;margin-bottom:8px}
+#bossIntroName{font-size:clamp(15px,2.3vw,25px);font-weight:900;line-height:1.15;
+  color:#f4dbab;text-shadow:2px 2px #4d3245}
+#bossIntroLine{font-size:clamp(10px,1.4vw,14px);color:#d4c1d5;margin-top:10px}
+@media(max-width:650px) {
+  #bossIntro{top:14%;width:90%;padding:8px;gap:8px}
+  #bossPortrait{width:55px;height:65px}
+  .bossTag{font-size:8px;letter-spacing:.08em;margin-bottom:4px}
+  #bossIntroLine{margin-top:4px}
+}

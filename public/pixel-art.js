@@ -64,6 +64,41 @@
       rect(ctx, sx + 14, sy + 13, 2, 2, floor[1]);
     }
 
+    // Bespoke environmental clustering: vegetation, broken masonry, bones,
+    // glowing mineral shards. Clumps are seeded by tile, not random per frame,
+    // so camera motion never makes details shimmer or jump.
+    const a = (h >>> 5) % 23, b = (h >>> 12) % 19;
+    if (mood === 'forest') {
+      if (h % 3 === 0) {
+        rect(ctx, sx + a, sy + 18 + (b % 5), 3, 8, '#294e3f');
+        rect(ctx, sx + a - 4, sy + 16 + (b % 5), 9, 3, '#48856b');
+        rect(ctx, sx + a, sy + 10 + (b % 5), 3, 9, '#63ad7d');
+        rect(ctx, sx + a + 4, sy + 13 + (b % 4), 5, 3, '#397659');
+      }
+      if (h % 11 === 0) {
+        rect(ctx, sx + b, sy + 4, 3, 3, '#9ccfbb');
+        rect(ctx, sx + b - 3, sy + 7, 3, 3, '#64b0a5');
+      }
+    } else if (mood === 'ash') {
+      if (h % 3 === 0) {
+        rect(ctx, sx + a, sy + b, 6, 3, '#251c29');
+        rect(ctx, sx + a + 2, sy + b - 2, 3, 2, '#7b4c3a');
+      }
+      if (h % 7 === 0) rect(ctx, sx + a, sy + b, 2, 2, '#fa9251');
+    } else if (mood === 'sky' || mood === 'ancestor') {
+      if (h % 4 === 0) {
+        rect(ctx, sx + a, sy + b, 4, 8, mood === 'sky' ? '#45668c' : '#795794');
+        rect(ctx, sx + a + 1, sy + b - 3, 2, 4, mood === 'sky' ? '#80b6de' : '#c39de4');
+      }
+    } else if (h % 4 === 0) {
+      rect(ctx, sx + a, sy + b, 9, 3, floor[0]);
+      rect(ctx, sx + a + 2, sy + b - 2, 5, 2, floor[2]);
+    }
+    if (h % 19 === 0) {
+      rect(ctx, sx + (a % 18), sy + (b % 22), 4, 3, '#8f867a');
+      rect(ctx, sx + (a % 18) + 3, sy + (b % 22) + 2, 4, 2, '#2a2531');
+    }
+
     if (ch === 'T') {
       // Carved pillar with squared highlights and ancestral runes.
       rect(ctx, sx + 5, sy + 27, 24, 4, '#171626');
@@ -93,7 +128,7 @@
     }
   }
 
-  // Shapes use a small virtual sprite grid and a 2-world-unit pixel pitch.
+  // Silhouettes are narrower than collision diameter, with rich vertical detail.
   // All variations share the same animation origin (feet at y=0).
   function person(ctx, opts) {
     const o = opts || {}, kind = String(o.kind || 'hero');
@@ -104,8 +139,11 @@
     ctx.translate(Math.round(o.x || 0), Math.round(o.y || 0));
     if (facing) ctx.scale(-1, 1);
     ctx.globalAlpha *= o.alpha === undefined ? 1 : o.alpha;
-    const P = 2;
-    const r = (x, y, w, h, c) => rect(ctx, x * P, y * P, w * P, h * P, c);
+    // A 1x horizontal pixel grid keeps ordinary bodies within their 11-unit
+    // collision radius. Height stays 2x so faces and boss silhouettes read.
+    // Never use fractional canvas scaling: it blurs small sprite pixels.
+    const PX = 1, PY = 2;
+    const r = (x, y, w, h, c) => rect(ctx, x * PX, y * PY, w * PX, h * PY, c);
     const primary = o.color || PAL.gold;
     const dark = '#171425', skin = '#94593d', gleam = '#f4c48d';
     const armor = kind === 'warlord' ? '#963d35' :
@@ -198,7 +236,15 @@
         r(9, -34, 3, 4, '#ffe99b');
       }
     }
-    // An intentionally small specular highlight reads as a face, not an emoji.
+    // Fine costume pixels are deterministic, maintaining visual clarity as
+    // motion shifts the pose. Gold trim, clothing folds and cheekbone glint
+    // add volume without enlarging the collision silhouette.
+    r(-5, -13, 2, 3, '#3b2634');
+    r(4, -12, 1, 4, '#191424');
+    r(-5, -7, 3, 2, '#ae7754');
+    r(2, -7, 2, 2, '#e1ad72');
+    r(-3, -20, 1, 3, '#c88358');
+    r(4, -22, 1, 4, '#583627');
     r(-3, -15, 3, 2, gleam);
     ctx.restore();
   }
@@ -234,6 +280,47 @@
     rect(ctx, xx - 16, yy - 34 - wave, 6, 2, col);
     rect(ctx, xx + 12, yy - 34 - wave, 6, 2, col);
     rect(ctx, xx - 2, yy - 39 - wave, 4, 4, col);
+    ctx.restore();
+  }
+  // Children of Morta-inspired lighting principle: textured pixel art
+  // remains sharp while translucent warm/cool light falls across the scene.
+  // Original procedural effects only: no third-party art assets are copied.
+  function atmosphere(ctx, map, camera, zoom, width, height, t) {
+    if (!map || !map.rows || typeof ctx.createRadialGradient !== 'function') return;
+    const x0 = Math.max(0, Math.floor(camera.x / 32) - 1);
+    const y0 = Math.max(0, Math.floor(camera.y / 32) - 1);
+    const x1 = Math.min(map.w - 1, Math.ceil((camera.x + width / zoom) / 32) + 1);
+    const y1 = Math.min(map.h - 1, Math.ceil((camera.y + height / zoom) / 32) + 1);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Layering rather than blur: strong localized contrast, dim ambient space.
+    ctx.fillStyle = 'rgba(9, 8, 23, 0.12)';
+    ctx.fillRect(0, 0, width, height);
+    let count = 0;
+    for (let j = y0; j <= y1 && count < 12; j++) {
+      for (let i = x0; i <= x1 && count < 12; i++) {
+        if (map.rows[j][i] !== 'o') continue;
+        const x = Math.round((i * 32 + 16 - camera.x) * zoom);
+        const y = Math.round((j * 32 + 11 - camera.y) * zoom);
+        const radius = 105 * zoom + Math.sin(t * 7 + i) * 5;
+        const g = ctx.createRadialGradient(x, y, 6, x, y, radius);
+        g.addColorStop(0, 'rgba(255,188,109,0.26)');
+        g.addColorStop(0.32, 'rgba(226,130,82,0.15)');
+        g.addColorStop(1, 'rgba(255,140,100,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x - radius, y - radius, 2 * radius, 2 * radius);
+        count++;
+      }
+    }
+    // The ancestral glow is distinct from palace firelight. Keep this
+    // behind UI and never obscure player text, indicators or health bars.
+    if (map.chapter === 'trials') {
+      const x = width / 2, y = height / 2, radius = Math.min(width, height) * 0.7;
+      const g = ctx.createRadialGradient(x,y,25,x,y,radius);
+      g.addColorStop(0,'rgba(112,91,175,0.10)');
+      g.addColorStop(1,'rgba(112,91,175,0)');
+      ctx.fillStyle = g; ctx.fillRect(x-radius,y-radius,2*radius,2*radius);
+    }
     ctx.restore();
   }
   function heart(ctx, x, y, on, low) {
@@ -274,5 +361,5 @@
     }
     rect(ctx, xx - 2, yy - 2, ww + 4, 2, '#9780a1');
   }
-  root.ChamPixelArt = Object.freeze({ tile, person, spirit, mark, frame, gauge, heart, palette: PAL });
+  root.ChamPixelArt = Object.freeze({ tile, person, spirit, mark, frame, gauge, heart, atmosphere, palette: PAL });
 })(window);

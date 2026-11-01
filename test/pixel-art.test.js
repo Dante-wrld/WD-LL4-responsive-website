@@ -23,7 +23,7 @@ function context() {
 }
 test('pixel renderer parses in isolation and provides visuals for all story stages', () => {
   const art = loadPixels();
-  for (const name of ['tile','person','spirit','mark','frame','gauge','heart']) {
+  for (const name of ['tile','person','spirit','mark','frame','gauge','heart','atmosphere']) {
     assert.equal(typeof art[name], 'function', name + ' exported');
   }
   const ctx = context();
@@ -73,14 +73,52 @@ test('pixel theme extends to title, rooms, combat HUD, mobile and existing cinem
   assert.match(html, /Pixel\.spirit\(ctx/);
   assert.match(html, /Pixel\.mark\(ctx/);
   assert.match(html, /Pixel\.heart\(ctx/);
-  assert.match(html, /pixelateWorld\(\); drawHUD2\(\)/);
-  assert.match(html, /pixelateWorld\(\); drawHUD\(\)/);
+  assert.doesNotMatch(html, /function pixelateWorld\(/,'no blurry downsample/upscale pass');
+  assert.match(html, /ZOOM = 1;/,'integer world zoom prevents fractional pixel edges');
+  assert.match(html, /Pixel\.atmosphere\(ctx, map, cam, ZOOM, W, H, T\)/);
   assert.match(html, /storyPixelVideo/);
   assert.match(html, /pixelateStory\(\)/);
   assert.match(html, /Pixel\.frame\(ctx, W, H\)/);
   assert.match(css, /#storyPixelVideo/);
+  assert.match(css, /#bossIntro/);
+  assert.match(html, /showBossIntro\(m\.boss\)/);
+  assert.match(html, /id="bossPortrait"/);
   assert.match(css, /#stage/);
   assert.match(css, /@media\(max-width:650px\)/);
   assert.match(html, /id="trialsGo"/,'optional Act II spirit trials remain available');
   assert.match(html, /id="dungeonGo"/,'existing dungeon remains available');
+});
+
+test('detailed room pixels and atmosphere use deterministic tile clusters and soft light', () => {
+  const art = loadPixels();
+  const c = context();
+  for (const mood of ['forest','sky','ancestor','ash','crypt','palace']) {
+    const chapter = ['forest','sky','ancestor'].includes(mood) ? 'trials' :
+      ['ash','crypt'].includes(mood) ? 'dungeon' : 'palace';
+    const name = {forest:'THE POOL OF REFLECTIONS',sky:'THE HALL OF BREATH',
+      ancestor:'THE ANCESTORS CIRCLE',ash:'THE ASH WARLORD',crypt:'THE CRYPT',
+      palace:'PALACE HALL'}[mood];
+    for(let x=0;x<7;x++) art.tile(c,'.',x,2,x*32,64,32,null,chapter,name,1,true);
+  }
+  assert.ok(c.draws.length > 180, 'rooms include layered environmental detail');
+  const lights = [];
+  const contextWithGradients = {
+    ...context(),
+    createRadialGradient() {
+      const stops = [];
+      lights.push(stops);
+      return { addColorStop(t, color) { stops.push([t,color]); } };
+    },
+    setTransform() {}
+  };
+  const map={w:8,h:8,chapter:'trials',rows:Array.from({length:8},(_,i)=>'.'.repeat(4)+(i%2===0?'o':'.')+'...')};
+  assert.doesNotThrow(()=>art.atmosphere(contextWithGradients,map,{x:0,y:0},1,960,540,1));
+  assert.ok(lights.length >= 3, 'distinct torch and ancestral glow rendered');
+});
+test('player sprite silhouette fits the 11-unit collision radius at rest', () => {
+  const art=loadPixels(),ctx=context();
+  art.person(ctx,{x:0,y:0,kind:'hero',walk:0,alpha:1,color:'#ffd166'});
+  const xs=ctx.draws.filter(d=>typeof d[0]==='number').flatMap(d=>[d[0],d[0]+d[2]]);
+  assert.ok(Math.min(...xs)>=-11,'sprite does not extend more than 11 left');
+  assert.ok(Math.max(...xs)<=12,'sprite does not extend more than 12 right');
 });

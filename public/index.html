@@ -69,6 +69,14 @@
 <div id="wrap"><div id="stage">
   <canvas id="c" width="960" height="540"></canvas>
   <div id="banner"><div class="t" id="bt"></div><div class="s" id="bs"></div></div>
+  <div id="bossIntro" class="hidden" role="status" aria-live="polite">
+    <canvas id="bossPortrait" width="128" height="152" aria-hidden="true"></canvas>
+    <div class="bossLore">
+      <div class="bossTag">ANCESTRAL ENCOUNTER</div>
+      <div id="bossIntroName"></div>
+      <div id="bossIntroLine"></div>
+    </div>
+  </div>
 
   <div id="title" class="screen">
     <h1>CHAMINUKA</h1>
@@ -208,25 +216,11 @@
 <script>
 (() => {
 'use strict';
-const W = 960, H = 540, TILE = 32, TAU = Math.PI * 2, ZOOM = 1.35;
+const W = 960, H = 540, TILE = 32, TAU = Math.PI * 2, ZOOM = 1;
 const VW = W / ZOOM, VH = H / ZOOM;
 const $ = (id) => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
 const Pixel = window.ChamPixelArt;
-// Nearest-neighbor pass converts both authored Acts into the same 2x pixel world.
-const pixelBuffer = document.createElement('canvas');
-pixelBuffer.width = W / 2; pixelBuffer.height = H / 2;
-const pixelBufferCtx = pixelBuffer.getContext('2d');
-function pixelateWorld() {
-  pixelBufferCtx.setTransform(1, 0, 0, 1, 0, 0);
-  pixelBufferCtx.clearRect(0, 0, pixelBuffer.width, pixelBuffer.height);
-  pixelBufferCtx.imageSmoothingEnabled = true;
-  pixelBufferCtx.drawImage(cv, 0, 0, pixelBuffer.width, pixelBuffer.height);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(pixelBuffer, 0, 0, W, H);
-}
 ctx.imageSmoothingEnabled = false;
 const dark = document.createElement('canvas'); dark.width = W; dark.height = H;
 const dctx = dark.getContext('2d');
@@ -814,6 +808,35 @@ function drawFeed() {
 
 // ------------------------------------------------------------------ Act II
 let shrineSyncTimer = null;
+// Dramatic boss entrances are nonblocking, so the server-authoritative
+// WebSocket game and every player's ability to move remain unchanged.
+const BOSS_INTROS = Object.freeze({
+  echo: ['ECHO OF THE HUNTER', 'The wind remembers every hunter.'],
+  sentinel: ['ANCESTRAL SENTINEL', 'The ancestors are watching.'],
+  warden: ['TOMB WARDEN', 'The old oath has not died.'],
+  warlord: ['ASH WARLORD', 'The flames will test what remains.']
+});
+let bossIntroTimer = null;
+function showBossIntro(kind) {
+  clearTimeout(bossIntroTimer);
+  $('bossIntro').classList.add('hidden');
+  const lore = BOSS_INTROS[kind];
+  if (!lore) return;
+  $('bossIntroName').textContent = lore[0];
+  $('bossIntroLine').textContent = lore[1];
+  const portrait = $('bossPortrait'), p = portrait.getContext('2d');
+  p.setTransform(1,0,0,1,0,0);
+  p.clearRect(0,0,portrait.width,portrait.height);
+  p.fillStyle = '#1a1529'; p.fillRect(0,0,portrait.width,portrait.height);
+  p.strokeStyle = kind === 'warlord' ? '#f8a55d' : kind === 'echo' ? '#9ccaff' : '#b79de4';
+  p.lineWidth = 2;
+  p.strokeRect(13,10,102,132);
+  p.translate(64,143); p.scale(2,2); p.imageSmoothingEnabled = false;
+  Pixel.person(p,{x:0,y:0,kind,color:'#b79b7d',flip:false,walk:0});
+  p.setTransform(1,0,0,1,0,0);
+  $('bossIntro').classList.remove('hidden');
+  bossIntroTimer = setTimeout(() => $('bossIntro').classList.add('hidden'), 3200);
+}
 function onMap2(m) {
   // A new map must never render against the previous act's snapshot.
   // Wait for the matching Act II player/enemy state before showing gameplay.
@@ -826,6 +849,7 @@ function onMap2(m) {
   $('toast').textContent = '';
   buildMini();
   show(null);
+  showBossIntro(m.boss);
   clearTimeout(shrineSyncTimer);
   shrineSyncTimer = setTimeout(() => {
     if (act !== 2 || snap2 || !map) return;
@@ -970,7 +994,8 @@ function drawFoe(f) {
   if (f.hurt) ctx.globalAlpha = 0.55;
   if (spec.boss) {
     ctx.save(); ctx.translate(f.x, f.y);
-    ctx.scale(1.32, 1.32);
+    // Avoid fractional transforms that soften pixel-art combat sprites.
+    ctx.scale(1, 1);
     person(0, 0, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1, f.kind);
     ctx.restore();
   } else person(f.x, f.y, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1, f.kind);
@@ -1455,8 +1480,8 @@ function frame(now) {
   }
   if (map && snap && live) {
     anim(dt);
-    if (act === 2) { drawWorld2(); pixelateWorld(); drawHUD2(); }
-    else { drawWorld(); pixelateWorld(); drawHUD(); }
+    if (act === 2) { drawWorld2(); Pixel.atmosphere(ctx, map, cam, ZOOM, W, H, T); ctx.setTransform(1, 0, 0, 1, 0, 0); drawHUD2(); }
+    else { drawWorld(); Pixel.atmosphere(ctx, map, cam, ZOOM, W, H, T); ctx.setTransform(1, 0, 0, 1, 0, 0); drawHUD(); }
   }
   pixelateStory();
   requestAnimationFrame(frame);
