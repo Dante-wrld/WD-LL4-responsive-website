@@ -1,2 +1,5 @@
 data/
 node_modules/
+
+# Browser-test screenshots
+verify-shots/
