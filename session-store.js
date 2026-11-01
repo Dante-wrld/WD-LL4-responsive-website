@@ -35,6 +35,16 @@ function stageRestore(target, data, stage) {
   target.players = new Map((data.players || []).map(([id, p]) => [Number(id), {
     ...p, connected: false,
     usedBodies: stage === 'act1' ? new Set(p.usedBodies || []) : p.usedBodies,
+    // A thrust cannot survive a restart. act2.js tracks what a swing has already
+    // hit in a Set, JSON turns a Set into {}, and the next tick calls .has() on
+    // it and throws. server.js catches that, so nothing looks broken — but the
+    // throw lands before the block that would clear the swing, so swingPhase
+    // stays 'swing' for the rest of the session. act2.js then reads that as
+    // permanently mid-thrust: no dodge ever again (!p.swingPhase gates it) and
+    // 35% movement speed. Measured: dodge yes -> no, 150px/s -> 53px/s.
+    // Cancel the swing instead; a blow that was in the air when the process
+    // stopped should not land a minute later anyway.
+    ...(stage === 'act2' ? { swingHit: null, swingT: 0, swingPhase: '', recover: 0 } : {}),
   }]));
   target.field = null; // flow-fields are ephemeral and can be rebuilt
 }

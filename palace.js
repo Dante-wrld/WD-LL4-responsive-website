@@ -106,8 +106,8 @@ function palace() {
       // nursery — priests, and one soldier posted at the door
       { role: 'priest', name: 'Rwatira', route: [[4, 6], [9, 4], [9, 8]], pause: 2.4 },
       { role: 'priest', name: 'Chenzira', route: [[6, 8], [11, 8], [11, 3]], pause: 2.0 },
-      { role: 'soldier', name: 'Garai', route: [[12, 5], [12, 8]], pause: 3.0 },
-      { role: 'servant', name: 'Mazvita', route: [[3, 8], [3, 3], [7, 3]], pause: 2.6 },
+      { role: 'soldier', name: 'Garai', route: [[15, 4], [15, 8]], pause: 3.0 },
+      { role: 'servant', name: 'Mazvita', route: [[30, 8], [30, 3], [34, 3]], pause: 2.6 },
       // the hall — the public spine. You must cross it, so it is busy: crossing
       // with the child in the wrong arms should feel like a real gamble.
       { role: 'soldier', name: 'Tapiwa', route: [[16, 3], [24, 3], [24, 9], [16, 9]], pause: 1.4 },
@@ -123,7 +123,7 @@ function palace() {
       { role: 'servant', name: 'Ruva', route: [[29, 12], [29, 4], [35, 4]], pause: 2.2 },
       { role: 'servant', name: 'Tendai', route: [[33, 20], [29, 20], [29, 15]], pause: 2.4 },
       { role: 'servant', name: 'Rudo', route: [[35, 9], [35, 16], [31, 16]], pause: 2.0 },
-      { role: 'soldier', name: 'Shungu', route: [[28, 11], [28, 13]], pause: 3.2 },
+      { role: 'soldier', name: 'Shungu', route: [[20, 11], [20, 14]], pause: 3.2 },
       { role: 'captain', name: 'Zivai', route: [[34, 6], [34, 12]], pause: 3.0 },
     ].map((b, i) => {
       // Most palace residents hold their post. Only seven walk short local beats.
