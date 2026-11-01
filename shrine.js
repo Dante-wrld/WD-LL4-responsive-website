@@ -193,7 +193,7 @@ function chamber(n) {
   const index = trials ? Math.min(n - CHAMBERS.length - DUNGEONS.length, TRIALS.length - 1)
     : dungeon ? Math.min(n - CHAMBERS.length, DUNGEONS.length - 1) : Math.max(0, n);
   const spec = trials ? TRIALS[index] : dungeon ? DUNGEONS[index] : CHAMBERS[index];
-  const layout = ROOM_LAYOUTS[n];
+  const layout = ROOM_LAYOUTS[Math.max(0, Math.min(n, ROOM_LAYOUTS.length - 1))];
   const g = blank();
   // Build real corridors and flanking cover rather than 13 empty rectangles.
   for (const [x, y, w, h] of layout.walls)
