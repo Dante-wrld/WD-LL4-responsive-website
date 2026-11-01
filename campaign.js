@@ -256,6 +256,11 @@ class Session {
     this.sendLobby();
   }
 
+  /** Enter optional spirit mastery rooms, without changing Act I or main quest. */
+  enterTrials(pid) {
+    if (this.stage !== 'act2' || !this.isHost(pid) || !this.shrine) return false;
+    return this.shrine.beginTrials();
+  }
   /** Enter the optional dungeon only after completing the original shrine.
    *  Host-authorized, shared for all seats, with each player's gear preserved. */
   enterDungeon(pid) {
@@ -269,7 +274,7 @@ class Session {
   again(pid) {
     if (!this.isHost(pid)) return;
     if (this.stage === 'act2') {
-      if (this.shrine.chapter === 'dungeon' && this.shrine.phase === 'down') {
+      if (['dungeon', 'trials'].includes(this.shrine.chapter) && this.shrine.phase === 'down') {
         // Losing a boss fight costs the room, not the equipment earned so far.
         for (const p of this.shrine.players.values()) { p.hp = p.hpMax; p.dead = false; }
         this.shrine.enterChamber(this.shrine.chamberN);

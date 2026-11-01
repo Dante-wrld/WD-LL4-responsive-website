@@ -87,7 +87,7 @@
   chamA:()=>{const me=state()?.me;press(act===2?'KeyJ':(me?.form==='worn'?'Space':'KeyE'));},
   chamB:()=>press(act===2?'KeyK':'KeyF'),
   chamC:()=>press('KeyE'),
-  chamD:()=>{if(act===2)return;runDown=!runDown;key('ShiftLeft',runDown);}
+  chamD:()=>{if(act===2){press('KeyF');return;}runDown=!runDown;key('ShiftLeft',runDown);}
  };
  for(const [id,fn] of Object.entries(actions)){
   const el=get(id);
@@ -126,8 +126,8 @@
   get('chamA').textContent=act===2?'ATTACK':(worn?'INFANT':'WEAR');
   get('chamB').textContent=act===2?'DODGE':'ABILITY';
   get('chamC').textContent=act===2?'SPIRIT':'POSSESS';
-  get('chamD').textContent=act===2?'':'RUN'+(runDown?': ON':'');
-  get('chamD').style.display=act===2?'none':'';
+  get('chamD').textContent=act===2?'ASPECT':'RUN'+(runDown?': ON':'');
+  get('chamD').style.display='';
   get('chamD').classList.toggle('down',runDown);
  }
  window.addEventListener('blur',reset);

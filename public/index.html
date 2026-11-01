@@ -62,6 +62,8 @@
   table.k td:first-child{white-space:nowrap}
   table.k td:last-child{color:var(--dim)}
 </style>
+<link rel="stylesheet" href="/pixel-theme.css">
+<script src="/pixel-art.js"></script>
 </head>
 <body>
 <div id="wrap"><div id="stage">
@@ -143,6 +145,7 @@
     <div class="sub" style="font-size:11px;max-width:45em">Leaderboard notice: scores on the free-hosted demo are temporary and may reset after server inactivity or an update. Permanent competitive rankings require durable storage.</div>
     <div id="nextup" style="margin:10px auto;max-width:34em;font-size:12px;color:#8f9fb0"></div>
     <div class="row">
+      <button id="trialsGo" class="primary hidden" type="button">TRAIN SPIRIT TRANSFORMATIONS (ACT II)</button>
       <button id="dungeonGo" class="primary hidden" type="button">ENTER THE ANCESTRAL DUNGEON</button>
       <button id="again" class="primary">AGAIN</button>
     </div>
@@ -150,6 +153,7 @@
   </div>
   <div id="story" class="screen hidden" role="dialog" aria-label="Story cinematic">
     <video id="storyVideo" class="hidden" preload="metadata" playsinline muted aria-label="Cinematic footage"></video>
+    <canvas id="storyPixelVideo" class="hidden" width="320" height="180" aria-hidden="true"></canvas>
     <div id="storyShot" class="shot"></div>
     <div class="card">
       <div id="storyIndex"></div>
@@ -208,6 +212,21 @@ const W = 960, H = 540, TILE = 32, TAU = Math.PI * 2, ZOOM = 1.35;
 const VW = W / ZOOM, VH = H / ZOOM;
 const $ = (id) => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
+const Pixel = window.ChamPixelArt;
+// Nearest-neighbor pass converts both authored Acts into the same 2x pixel world.
+const pixelBuffer = document.createElement('canvas');
+pixelBuffer.width = W / 2; pixelBuffer.height = H / 2;
+const pixelBufferCtx = pixelBuffer.getContext('2d');
+function pixelateWorld() {
+  pixelBufferCtx.setTransform(1, 0, 0, 1, 0, 0);
+  pixelBufferCtx.clearRect(0, 0, pixelBuffer.width, pixelBuffer.height);
+  pixelBufferCtx.imageSmoothingEnabled = true;
+  pixelBufferCtx.drawImage(cv, 0, 0, pixelBuffer.width, pixelBuffer.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(pixelBuffer, 0, 0, W, H);
+}
 ctx.imageSmoothingEnabled = false;
 const dark = document.createElement('canvas'); dark.width = W; dark.height = H;
 const dctx = dark.getContext('2d');
@@ -323,6 +342,7 @@ function onMsg(m) {
  *  coming next. Losing costs you the night, not the story. */
 function endCard(m, won) {
   $('dungeonGo').classList.add('hidden');
+  $('trialsGo').classList.add('hidden');
   $('dungeonWait').textContent = '';
   phase = won ? 'won' : 'lost';
   $('wonhead').textContent = won ? 'THE CHILD IS AWAY' : 'THE HOUSE IS ROUSED';
@@ -363,6 +383,19 @@ function drawBoards(b) {
 let storyScenes = [], storyAt = 0, storyKey = '', storyDone = false;
 let voiceOn = false, videoSoundOn = false;
 const sv = () => $('storyVideo');
+const storyRaster = $('storyPixelVideo'), rasterCtx = storyRaster.getContext('2d');
+function pixelateStory() {
+  const v = sv();
+  if ($('story').classList.contains('hidden') || v.classList.contains('hidden') || v.readyState < 2) return;
+  try {
+    rasterCtx.setTransform(1, 0, 0, 1, 0, 0);
+    rasterCtx.clearRect(0, 0, storyRaster.width, storyRaster.height);
+    rasterCtx.drawImage(v, 0, 0, storyRaster.width, storyRaster.height);
+    storyRaster.classList.remove('hidden');
+  } catch (_) {
+    storyRaster.classList.add('hidden'); // show the real video if a device refuses the canvas copy
+  }
+}
 
 function stopVoice() { try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
 function speak(text) {
@@ -384,6 +417,17 @@ function drawScene() {
   $('storyTitle').textContent = s.title || '';
   $('storyText').textContent = s.text || '';
   $('storyShot').style.backgroundImage = s.still ? `url('/assets/${s.still}.webp')` : 'none';
+  storyRaster.classList.add('hidden');
+  if (!s.video && s.still) {
+    const still = new Image();
+    still.onload = () => {
+      if (storyScenes[storyAt] !== s || !$('storyVideo').classList.contains('hidden')) return;
+      rasterCtx.clearRect(0, 0, storyRaster.width, storyRaster.height);
+      rasterCtx.drawImage(still, 0, 0, storyRaster.width, storyRaster.height);
+      storyRaster.classList.remove('hidden');
+    };
+    still.src = '/assets/' + s.still + '.webp';
+  }
   $('storySound').classList.toggle('hidden', !s.video);
   $('storyPlay').classList.add('hidden');
   const v = sv();
@@ -528,7 +572,9 @@ const BOONS = {
 function onGift(m) {
   phase = 'gift';
   const host = amHost();
-  $('gifthead').textContent = m.chapter === 'dungeon'
+  $('gifthead').textContent = m.chapter === 'trials'
+    ? `Spirit Trial ${m.chamber} of ${m.of} cleared. Transformation learned; choose equipment.`
+    : m.chapter === 'dungeon'
     ? `Dungeon ${m.chamber} of ${m.of} cleared. Choose equipment.`
     : `Chamber ${m.chamber} of ${m.of} behind you.`;
   $('giftopts').innerHTML = (m.offer || []).map((o) => `
@@ -555,19 +601,21 @@ function onDown(m) {
 function onDone(m) {
   phase = 'done';
   const dungeon = m.chapter === 'dungeon';
-  $('wonhead').textContent = dungeon ? 'THE ASH WARLORD FALLS' : 'THE SHRINE HOLDS';
+  $('wonhead').textContent = dungeon ? 'THE ASH WARLORD FALLS' : m.chapter === 'trials' ? 'THREE SPIRITS AWAKENED' : 'THE SHRINE HOLDS';
   $('wonhead').style.color = '';
-  $('wontext').innerHTML = `${esc(m.by)} ${dungeon ? 'conquered the Ancestral Dungeon' : 'held Mavambo'} in <b>${Math.floor(m.secs / 60)}m ${Math.round(m.secs % 60)}s</b>, `
+  $('wontext').innerHTML = `${esc(m.by)} ${dungeon ? 'conquered the Ancestral Dungeon' : m.chapter === 'trials' ? 'mastered the ancestral spirit trials' : 'held Mavambo'} in <b>${Math.floor(m.secs / 60)}m ${Math.round(m.secs % 60)}s</b>, `
     + `<b>${m.kills}</b> of the king\u2019s men down`
     + (m.deaths ? `, falling <b>${m.deaths}</b> ${m.deaths === 1 ? 'time' : 'times'} on the way.` : ', without once falling.');
   $('prophecy').textContent = m.line ? '\u201c' + m.line + '\u201d' : '';
   $('earned').innerHTML = (dungeon ? (m.equipment || []).map((g) => Object.values(g).filter(Boolean).join(' / '))
     : (m.gifts || [])).map((g) => `<span style="color:var(--gold)">\u25c6 ${esc(g)}</span>`).join('  ')
     || '<span style="color:#7f8fa0">No equipment or gifts taken.</span>';
+  $('trialsGo').classList.toggle('hidden', !m.canTrials || !amHost());
+  $('trialsGo').disabled = !m.canTrials || !amHost();
   $('dungeonGo').classList.toggle('hidden', !m.canDungeon || !amHost());
   $('dungeonGo').disabled = !m.canDungeon || !amHost();
-  $('dungeonWait').textContent = m.canDungeon && !amHost()
-    ? 'Your host can open the next six-room dungeon quest.' : '';
+  $('dungeonWait').textContent = (m.canDungeon || m.canTrials) && !amHost()
+    ? 'Your host can open the training quest or the Ancestral Dungeon.' : '';
   $('nextup').textContent = m.next || '';
   if (m.board) drawBoards(m.board);
   clearTimeout(bannerT); $('banner').classList.remove('show');
@@ -576,6 +624,11 @@ function onDone(m) {
     $('storyWait').textContent = 'The road stops here \u2014 for now.'; show('story'); drawScene(); }, 2600); }
 }
 $('rise').onclick = () => send({ t: 'again' });
+$('trialsGo').onclick = () => {
+  $('trialsGo').disabled = true;
+  $('dungeonWait').textContent = 'Entering the ancestral spirit trials…';
+  send({ t: 'trials' });
+};
 $('dungeonGo').onclick = () => {
   $('dungeonGo').disabled = true;
   $('dungeonWait').textContent = 'Entering the Ancestral Dungeon…';
@@ -728,7 +781,7 @@ setInterval(() => {
   const my = (k('KeyS') || k('ArrowDown') ? 1 : 0) - (k('KeyW') || k('ArrowUp') ? 1 : 0);
   if ((mx || my) && !(act === 2 && T - aimLocked < 1.5)) aim = Math.atan2(my, mx);
   if (act === 2) {
-    send({ t: 'in', mx, my, a: +aim.toFixed(3), atk: atkQ, dodge: dodgeQ, use: useQ });
+    send({ t: 'in', mx, my, a: +aim.toFixed(3), atk: atkQ, dodge: dodgeQ, use: useQ, skill: actQ });
   } else {
     send({ t: 'in', mx, my, a: +aim.toFixed(3), hurry: k('ShiftLeft') || k('ShiftRight'),
       use: useQ, act: actQ, take: takeQ });
@@ -792,7 +845,7 @@ function onSnap2(m) {
   for (const p of m.p) {
     let o = P.get(p.i); if (!o) { o = { x: p.x, y: p.y, walk: 0 }; P.set(p.i, o); }
     Object.assign(o, { tx: p.x, ty: p.y, a: p.a, f: p.f, w: p.w, bx: p.bx, by: p.by, v: p.v,
-      hp: p.hp, hm: p.hm, d: p.d, sw: p.sw, dg: p.dg, iv: p.iv, i: p.i });
+      hp: p.hp, hm: p.hm, d: p.d, asp: p.asp, sw: p.sw, dg: p.dg, iv: p.iv, i: p.i });
     seen.add(p.i);
   }
   for (const id of [...P.keys()]) if (!seen.has(id)) P.delete(id);
@@ -838,7 +891,7 @@ function drawWorld2() {
     if (!p.v) continue;
     const nf = names.get(id) || { idx: 0 };
     ctx.globalAlpha = 0.5 + Math.sin(T * 2.4) * 0.12;
-    person(p.bx, p.by, PCOL[nf.idx % 4], '#15121f', 1, 0, 1);
+    person(p.bx, p.by, PCOL[nf.idx % 4], '#15121f', 1, 0, 1, 'hero');
     ctx.globalAlpha = 1;
     ctx.strokeStyle = '#ff8b7a'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(p.bx, p.by, 20 + Math.sin(T * 3) * 2, 0, TAU); ctx.stroke();
@@ -858,7 +911,7 @@ function drawWorld2() {
     const nf = names.get(id) || { idx: 0 };
     if (p.dg) { ctx.globalAlpha = 0.55; }
     if (p.iv) { ctx.globalAlpha = 0.5 + Math.sin(T * 24) * 0.3; }
-    person(p.x, p.y, PCOL[nf.idx % 4], '#15121f', Math.cos(p.a) < 0, p.walk, 1);
+    person(p.x, p.y, PCOL[nf.idx % 4], '#15121f', Math.cos(p.a) < 0, p.walk, 1, 'hero');
     ctx.globalAlpha = 1;
     drawSpear(p);
     txt(id === myId ? 'you' : (nf.n || ''), p.x, p.y - 30, 9, id === myId ? '#9ad6ff' : PCOL[nf.idx % 4], 'center');
@@ -872,6 +925,11 @@ function drawWorld2() {
     ctx.setLineDash([6, 6]);
     ctx.beginPath(); ctx.moveTo(mine.x, mine.y); ctx.lineTo(mine.bx, mine.by); ctx.stroke();
     ctx.setLineDash([]);
+  }
+  // All players see the currently transformed spirit, even in a borrowed body.
+  for (const [, p] of P) {
+    if (p.d || !p.asp) continue;
+    Pixel.mark(ctx, p.asp, p.x, p.y, T);
   }
   drawParts();
   ctx.restore();
@@ -913,9 +971,9 @@ function drawFoe(f) {
   if (spec.boss) {
     ctx.save(); ctx.translate(f.x, f.y);
     ctx.scale(1.32, 1.32);
-    person(0, 0, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1);
+    person(0, 0, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1, f.kind);
     ctx.restore();
-  } else person(f.x, f.y, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1);
+  } else person(f.x, f.y, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1, f.kind);
   ctx.globalAlpha = 1;
   // facing, so a telegraph can be read
   ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1.5;
@@ -932,16 +990,15 @@ function drawFoe(f) {
 }
 function drawHUD2() {
   if (!me2) return;
+  Pixel.frame(ctx, W, H);
   txt(map.name, W / 2, 22, 13, '#e8b84a', 'center');
-  txt(`${me2.chapter === 'dungeon' ? 'dungeon' : 'chamber'} ${me2.chamber} of ${me2.total || 4} \u00b7 ${me2.left} still standing`, W / 2, 38, 10,
+  txt(`${me2.chapter === 'dungeon' ? 'dungeon' : me2.chapter === 'trials' ? 'spirit trial' : 'chamber'} ${me2.chamber} of ${me2.total || 4} \u00b7 ${me2.left} still standing`, W / 2, 38, 10,
     me2.left ? '#9fb0c0' : '#79c7a4', 'center');
 
   // hearts
   for (let i = 0; i < me2.hpMax; i++) {
     const x = 18 + i * 20, y = 30, on = i < me2.hp;
-    ctx.fillStyle = on ? (me2.hp === 1 ? '#ff5a5a' : '#ff8b7a') : '#2a2436';
-    ctx.beginPath(); ctx.arc(x, y, 7, 0, TAU); ctx.fill();
-    if (on && me2.hp === 1) { ctx.globalAlpha = 0.4 + Math.sin(T * 8) * 0.3; ctx.beginPath(); ctx.arc(x, y, 10, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
+    Pixel.heart(ctx, x - 3, y - 13, on, me2.hp === 1);
   }
   if (me2.refusals) txt(`\u25c6 a debt owed \u2014 one death refused`, 18, 54, 10, '#c9a24a');
   const boss = map.boss && [...Fs.values()].find(f => f.kind === map.boss);
@@ -954,6 +1011,12 @@ function drawHUD2() {
   const formLine = me2.form === 'self' ? 'CHAMINUKA' : me2.form === 'spirit' ? 'UNHOUSED' : `WEARING ${String(me2.wornName || '').toUpperCase()}`;
   txt(formLine, 18, me2.refusals ? 74 : 60, 14, me2.form === 'self' ? '#9ad6ff' : me2.form === 'spirit' ? '#c9a7ff' : '#ffd98a');
   txt(me2.buildName || '', 18, me2.refusals ? 90 : 76, 10, '#9ad6ff');
+  if (me2.aspect || (me2.aspects && me2.aspects.length)) {
+    const line = me2.aspect
+      ? me2.aspect.toUpperCase() + ' SPIRIT ' + Math.ceil(me2.aspectT || 0) + 's'
+      : 'F / ASPECT: ' + (me2.aspectCd > 0 ? me2.aspectCd + 's cooldown' : me2.nextAspect + ' ready');
+    txt(line, W - 20, 112, 11, me2.aspect ? '#dfb7ff' : '#9ad6ff', 'right');
+  }
   let yy = (me2.refusals ? 90 : 76) + 16;
   if (me2.form !== 'self') {
     txt(`your body is unguarded \u2014 it takes \u00d7${me2.vacantMult} damage`, 18, yy, 10, '#ff8b7a'); yy += 14;
@@ -992,6 +1055,8 @@ function drawHUD2() {
   // Growth remains readable while fighting, especially on a small phone screen.
   txt(`LV ${me2.level || 1}  XP ${me2.xp || 0}/${me2.nextXp || 50}  POWER ${me2.attack || 1}`,
     18, H - 47, 10, '#ffd98a');
+  if (me2.aspects && me2.aspects.length)
+    txt('SPIRIT ARTS: ' + me2.aspects.map(a => a.name).join(' / '), 18, H - 75, 9, '#d1b0ff');
   if (me2.gear && me2.gear.length)
     txt('GEAR: ' + me2.gear.map(g => g.name).join(' / '), 18, H - 61, 9, '#79c7a4');
   // what he carries
@@ -1043,56 +1108,19 @@ function txt(s, x, y, size, col, align) {
   ctx.fillStyle = col || '#fff'; ctx.fillText(s, x, y);
 }
 function bar(x, y, w, h, frac, col, bg) {
-  ctx.fillStyle = bg || 'rgba(0,0,0,.6)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
-  ctx.fillStyle = col; ctx.fillRect(x, y, Math.max(0, Math.min(1, frac)) * w, h);
+  Pixel.gauge(ctx, x, y, w, h, frac, col, bg);
 }
 const hash = (x, y) => (((x * 73856093) ^ (y * 19349663)) >>> 0);
 function drawTile(c, i, j, sx, sy) {
-  const h = hash(i, j), z = zoneOf(i, j);
-  if (c === '#') {
-    ctx.fillStyle = '#2b2438'; ctx.fillRect(sx, sy, TILE, TILE);
-    ctx.fillStyle = '#453c58'; ctx.fillRect(sx, sy, TILE, 6);
-    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(sx, sy + TILE - 5, TILE, 5);
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(sx, sy + 15, TILE, 1); ctx.fillRect(sx + 15 + (j & 1) * 6, sy + 6, 1, 9);
-    return;
-  }
-  const base = z ? (ZCOL[z.name] || '#262134') : '#36304a';
-  ctx.fillStyle = base; ctx.fillRect(sx, sy, TILE, TILE);
-  ctx.fillStyle = (h & 1) ? 'rgba(255,255,255,.028)' : 'rgba(0,0,0,.05)'; ctx.fillRect(sx, sy, TILE, TILE);
-  if (h % 7 === 0) { ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(sx + (h >> 3) % 24, sy + (h >> 6) % 24, 3, 2); }
-  if (c === 'T') {
-    ctx.fillStyle = '#cfc5b0'; ctx.fillRect(sx + 6, sy + 3, 20, 25);
-    ctx.fillStyle = '#eee5cf'; ctx.fillRect(sx + 4, sy + 1, 24, 5);
-    ctx.fillStyle = '#9d9480'; ctx.fillRect(sx + 20, sy + 6, 6, 22);
-    ctx.fillStyle = '#847b68'; ctx.fillRect(sx + 4, sy + 26, 24, 5);
-  } else if (c === 'o') {
-    ctx.fillStyle = '#4a4252'; ctx.fillRect(sx + 10, sy + 16, 12, 12);
-    ctx.fillStyle = '#6a6072'; ctx.fillRect(sx + 8, sy + 14, 16, 4);
-    const f = Math.sin(T * 9 + i) * 2;
-    ctx.fillStyle = '#ff9a2a'; ctx.beginPath(); ctx.moveTo(sx + 11, sy + 15); ctx.lineTo(sx + 16, sy + 1 + f); ctx.lineTo(sx + 21, sy + 15); ctx.fill();
-    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.moveTo(sx + 13, sy + 15); ctx.lineTo(sx + 16, sy + 6 + f); ctx.lineTo(sx + 19, sy + 15); ctx.fill();
-  } else if (c === 'D') {
-    const d = map.doors.find((dd) => dd.tiles.some(([x, y]) => x === i && y === j));
-    const allowed = !me || me.form !== 'worn' || !d || d.roles.includes(me.role);
-    const col = d ? (ROLES[d.roles[0]] || {}).col || '#e8b84a' : '#e8b84a';
-    ctx.fillStyle = allowed ? 'rgba(232,184,74,.16)' : 'rgba(224,82,74,.2)'; ctx.fillRect(sx, sy, TILE, TILE);
-    ctx.strokeStyle = allowed ? col : '#e0524a'; ctx.lineWidth = 2;
-    ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(sx + 1, sy); ctx.lineTo(sx + 1, sy + TILE); ctx.stroke(); ctx.setLineDash([]);
-    if (!allowed) { ctx.fillStyle = '#e0524a'; ctx.fillRect(sx + 12, sy + 12, 8, 9); ctx.fillRect(sx + 14, sy + 8, 4, 5); }
-  }
+  const d = c === 'D' && (map.doors || []).find((dd) =>
+    dd.tiles.some(([x, y]) => x === i && y === j));
+  const allowed = !me || me.form !== 'worn' || !d || d.roles.includes(me.role);
+  Pixel.tile(ctx, c, i, j, sx, sy, TILE, zoneOf(i, j)?.name,
+    map.chapter || (act === 2 ? 'shrine' : 'palace'), map.name || '', T, allowed);
 }
-function person(x, y, col, dark2, flip, walk, alpha) {
-  ctx.save(); ctx.globalAlpha = alpha === undefined ? 1 : alpha;
-  ctx.translate(Math.round(x), Math.round(y));
-  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, 1, 9, 4, 0, 0, TAU); ctx.fill();
-  const s = Math.sin(walk * 0.22) * 2.5;
-  ctx.fillStyle = dark2; ctx.fillRect(-5, -7, 4, 8 + s * 0.4); ctx.fillRect(1, -7, 4, 8 - s * 0.4);
-  ctx.fillStyle = col; ctx.fillRect(-6, -19, 12, 13);
-  ctx.fillStyle = dark2; ctx.fillRect(-6, -10, 12, 2);
-  ctx.fillStyle = '#6b4430'; ctx.fillRect(-4, -27, 8, 8);
-  ctx.fillStyle = '#15100c'; ctx.fillRect(-4, -28, 8, 3);
-  ctx.fillStyle = '#fff'; ctx.fillRect(flip ? -3 : 1, -24, 2, 2);
-  ctx.restore();
+function person(x, y, col, dark2, flip, walk, alpha, kind) {
+  Pixel.person(ctx, { x, y, color: col, shadow: dark2, flip, walk, alpha,
+    kind: kind || 'hero' });
 }
 function castRay(x0, y0, ang, maxD) {
   const dx = Math.cos(ang), dy = Math.sin(ang);
@@ -1222,11 +1250,11 @@ function drawBody(b) {
   const flip = Math.cos(b.a) < 0, x = b.x, y = b.y + 9;
   if (slumped) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(1.4);
-    person(0, 0, role.col, role.dark, flip, 0, 0.55); ctx.restore();
+    person(0, 0, role.col, role.dark, flip, 0, 0.55, b.role); ctx.restore();
     txt('out cold', x, y - 16, 9, '#8a7fb0', 'center');
     return;
   }
-  person(x, y, role.col, role.dark, flip, b.walk, 1);
+  person(x, y, role.col, role.dark, flip, b.walk, 1, b.role);
   // who is this
   const mine = worn && b.wornBy === myId;
   if (mine) {
@@ -1257,18 +1285,9 @@ function drawBody(b) {
 }
 function drawSpirit(p, id) {
   const nf = names.get(id) || { n: '?', idx: 0 }, self = id === myId;
-  const x = p.x, y = p.y + 6;
-  ctx.save(); ctx.globalAlpha = self ? 0.9 : 0.5;
-  for (let n = 0; n < 4; n++) {
-    const a = T * 1.6 + n * 1.57, r = 9 + Math.sin(T * 3 + n) * 3;
-    ctx.fillStyle = n % 2 ? '#9ad6ff' : '#c9b8ff';
-    ctx.fillRect(x + Math.cos(a) * r - 2, y + Math.sin(a) * r * 0.6 - 10, 4, 4);
-  }
-  ctx.fillStyle = 'rgba(190,220,255,.55)';
-  ctx.beginPath(); ctx.ellipse(x, y - 9, 8, 12, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#eaf4ff'; ctx.fillRect(x - 3, y - 14, 2, 2); ctx.fillRect(x + 1, y - 14, 2, 2);
-  ctx.restore();
-  txt(self ? 'you, unhoused' : nf.n, x, y - 28, 9, self ? '#9ad6ff' : PCOL[nf.idx % 4], 'center');
+  Pixel.spirit(ctx, {x: p.x, y: p.y + 6, alpha: self ? 0.95 : 0.64, tick: T});
+  txt(self ? 'you, unhoused' : nf.n, p.x, p.y - 28, 9,
+    self ? '#9ad6ff' : PCOL[nf.idx % 4], 'center');
 }
 function drawVeil() {
   // a soft gloom so the lit wings read, without hiding anything you need
@@ -1307,6 +1326,7 @@ function offscreenAllies() {
 // ------------------------------------------------------------------ HUD
 function drawHUD() {
   if (!me) return;
+  Pixel.frame(ctx, W, H);
   txt(map.name, W / 2, 22, 13, '#e8b84a', 'center');
 
   // the third clock: how awake the house is. It only ever climbs when something
@@ -1435,9 +1455,10 @@ function frame(now) {
   }
   if (map && snap && live) {
     anim(dt);
-    if (act === 2) { drawWorld2(); ctx.setTransform(1, 0, 0, 1, 0, 0); drawHUD2(); }
-    else { drawWorld(); ctx.setTransform(1, 0, 0, 1, 0, 0); drawHUD(); }
+    if (act === 2) { drawWorld2(); pixelateWorld(); drawHUD2(); }
+    else { drawWorld(); pixelateWorld(); drawHUD(); }
   }
+  pixelateStory();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
