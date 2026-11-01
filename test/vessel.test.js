@@ -222,8 +222,11 @@ test('a slumped body left lying about is eventually found', () => {
   passer.x = worn.x + 60; passer.y = worn.y; passer.state = 'idle';
   passer.route = [{ x: worn.x + 60, y: worn.y }];
   run(r, 0.3);
-  assert.notEqual(worn.state, 'slumped', 'he has been found and roused');
-  assert.ok(r.bodies.some((b) => b.state === 'alert'), 'and the wing is alerted');
+  assert.equal(worn.state, 'slumped', 'he remains unnoticed during the handoff window');
+  assert.ok(!r.bodies.some((b) => b.state === 'alert'), 'switching bodies does not instantly raise an alarm');
+  run(r, 8.1);
+  assert.notEqual(worn.state, 'slumped', 'a body left for too long is discovered');
+  assert.ok(r.bodies.some((b) => b.state === 'alert'), 'and the wing is eventually alerted');
 });
 
 test('a slumped body left somewhere quiet is safe until he wakes by himself', () => {
