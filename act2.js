@@ -19,7 +19,7 @@
  *
  * Death is not the end of the story: it costs you the chamber, not the campaign.
  */
-const { chamber, FOES } = require('./shrine');
+const { chamber, CHAMBERS, DUNGEONS, FOES } = require('./shrine');
 const { TILE, TAU, clamp, hyp, rd, angDiff, blocked, moveBy, los, canSee,
   flowField, flowStep } = require('./grid');
 const { loadout } = require('./road');
@@ -100,6 +100,22 @@ const CARRIED = {
 };
 const FROM_AFFINITY = { veiled: 'veiled', quick: 'quick', bold: 'bold' };
 
+/** Equipable prizes are real stat upgrades, not labels. Each category replaces
+ *  its previous item, so better equipment never stacks with the weaker version. */
+const GEAR = Object.freeze({
+  bronze_spear: { name: 'Bronze Spear', slot: 'weapon', tier: 1, blurb: '+12 reach, +0.25 attack', stats: { reach: 12, damage: .25 } },
+  iron_spear: { name: 'Iron Spear', slot: 'weapon', tier: 2, blurb: '+18 reach, +0.55 attack', stats: { reach: 18, damage: .55 } },
+  forged_spear: { name: 'Forged Spear', slot: 'weapon', tier: 3, blurb: '+23 reach, +0.80 attack', stats: { reach: 23, damage: .8 } },
+  ancestral_spear: { name: 'Ancestral Spear', slot: 'weapon', tier: 4, blurb: '+28 reach, +1.15 attack', stats: { reach: 28, damage: 1.15 } },
+  leather_vest: { name: 'Leather Vest', slot: 'armor', tier: 1, blurb: '+1 maximum heart', stats: { hpMax: 1 } },
+  warded_armor: { name: 'Warded Armor', slot: 'armor', tier: 2, blurb: '+2 hearts; protects unattended flesh', stats: { hpMax: 2, vacant: -.25 } },
+  ancestral_vest: { name: 'Ancestor Guard', slot: 'armor', tier: 3, blurb: '+3 hearts; protects unattended flesh', stats: { hpMax: 3, vacant: -.5 } },
+  spirit_beads: { name: 'Spirit Beads', slot: 'relic', tier: 1, blurb: '+4 spirit seconds and +8 possession reach', stats: { outMax: 4, takeBonus: 8 } },
+  moon_charm: { name: 'Moon Charm', slot: 'relic', tier: 2, blurb: '+7 spirit seconds and +14 possession reach', stats: { outMax: 7, takeBonus: 14 } },
+  ember_charm: { name: 'Ember Sigil', slot: 'relic', tier: 3, blurb: '+8 spirit seconds and +0.4 attack', stats: { outMax: 8, damage: .4 } },
+});
+
+
 class Shrine {
   /** @param out  (pid|null, msg) => void — null means everybody */
   constructor(code, out) {
@@ -108,6 +124,7 @@ class Shrine {
     this.phase = 'lobby'; this.time = 0; this.ev = [];
     this.map = null; this.foes = []; this.shots = [];
     this.chamberN = 0; this.cleared = 0; this.clearAt = 0;
+    this.chapter = 'shrine';
     this.offer = null; this.runStart = 0; this.deaths = 0;
     this.betrayed = false; this.roused = false; this.lastX = 0; this.lastY = 0;
     this.field = null; this.fieldAt = -9; this.fieldX = 0; this.fieldY = 0;
@@ -129,6 +146,7 @@ class Shrine {
       reach: SPEAR_REACH, damage: 1, vacant: VACANT_MULT, noticeMult: 1, takeBonus: 0, carried: [],
       refusals: 0, kills: 0, struckWhileWorn: false,
       gifts: [], affinities: [], build: 'unbound',
+      gear: { weapon: null, armor: null, relic: null }, xp: 0, level: 1,
       inp: { mx: 0, my: 0, a: 0, atk: false, atkEdge: false, dodge: false, dodgeEdge: false,
         use: false, useEdge: false, pick: 0 },
     };
@@ -165,10 +183,12 @@ class Shrine {
     const o = opts || {};
     this.load = loadout(o.boons || []);
     this.chamberN = 0; this.deaths = 0; this.runStart = this.time;
+    this.chapter = 'shrine'; this.lastDone = null;
     this.phase = 'run'; this.offer = null;
     for (const p of this.players.values()) {
       p.affinities = (o.affinities || []).slice();
-      p.gifts = [];
+      p.gifts = []; p.gear = { weapon: null, armor: null, relic: null };
+      p.xp = 0; p.level = 1;
       p.hpMax = this.load.maxHp; p.hp = p.hpMax;
       p.reach = SPEAR_REACH; p.damage = this.load.damage;
       p.vacant = VACANT_MULT; p.noticeMult = this.load.noticeMult;
@@ -186,9 +206,55 @@ class Shrine {
     this.enterChamber(0);
   }
 
+
+  /** Safe checkpoint after the original four shrine rooms. Keeps builds,
+   *  gifts and earned progression while opening a new six-room quest. */
+  beginDungeon() {
+    if (this.phase !== 'done' || this.chapter !== 'shrine') return false;
+    this.chapter = 'dungeon';
+    this.runStart = this.time; this.lastDone = null;
+    for (const p of this.players.values()) {
+      p.gear ||= { weapon: null, armor: null, relic: null };
+      p.level ||= 1; p.xp ||= 0;
+      p.hp = p.hpMax; p.dead = false;
+    }
+    this.enterChamber(CHAMBERS.length);
+    return true;
+  }
+
+  /** One equipped item per slot. Replacing a weapon removes old modifiers.
+   *  XP and gear live in player state and survive server-side checkpoint save. */
+  equip(p, key) {
+    const g = GEAR[key]; if (!g) return false;
+    p.gear ||= { weapon: null, armor: null, relic: null };
+    const old = GEAR[p.gear[g.slot]];
+    if (old && old.tier >= g.tier) return false;
+    for (const stat of ['reach', 'damage', 'hpMax', 'outMax', 'takeBonus', 'vacant']) {
+      const diff = (g.stats[stat] || 0) - (old?.stats?.[stat] || 0);
+      if (!diff) continue;
+      p[stat] += diff;
+      if (stat === 'hpMax') p.hp = Math.min(p.hpMax, p.hp + Math.max(0, diff));
+      if (stat === 'outMax') p.out = Math.min(p.outMax, p.out + Math.max(0, diff));
+    }
+    p.gear[g.slot] = key;
+    return true;
+  }
+
+  awardXP(p, kind) {
+    const points = FOES[kind]?.boss ? 85 : kind === 'captain' ? 32 : kind === 'hunter' ? 20 : 16;
+    p.xp = (p.xp || 0) + points; p.level ||= 1;
+    while (p.level < 10 && p.xp >= p.level * 50) {
+      p.xp -= p.level * 50; p.level++;
+      p.hpMax++; p.hp = Math.min(p.hpMax, p.hp + 1);
+      p.damage = +(p.damage + .1).toFixed(3);
+      this.ev.push(['feed', p.name + ' reached level ' + p.level + ': +1 heart and stronger strikes']);
+    }
+  }
+
   enterChamber(n) {
     this.chamberN = n;
     this.map = chamber(n);
+    this.chapter = this.map.chapter;
     this.betrayed = false; this.roused = false; this.clearAt = 0; this.offer = null;
     this.field = null; this.fieldAt = -9;
     this.shots = [];
@@ -213,7 +279,8 @@ class Shrine {
   mapMsg() {
     const m = this.map; if (!m) return null;
     return { t: 'map2', act: 2, w: m.w, h: m.h, rows: m.rows, name: m.name, line: m.line,
-      index: m.index, last: m.last, door: m.door, phase: this.phase,
+      index: m.index, last: m.last, chapter: m.chapter, step: m.step, total: m.total,
+      boss: m.boss, door: m.door, phase: this.phase,
       foes: Object.fromEntries(Object.entries(FOES).map(([k, v]) => [k, { name: v.name, col: v.col }])),
       boons: this.load.boons };
   }
@@ -325,9 +392,10 @@ class Shrine {
     this.phase = 'down';
     this.deaths++;
     this.ev.push(['ban', 'HE FALLS', 'The shrine is not taken today. Rise, and go again.']);
-    this.lastDown = { t: 'down', chamber: this.chamberN + 1, chamberName: this.map.name,
+    this.lastDown = { t: 'down', chapter: this.chapter, chamber: this.map.step, chamberName: this.map.name,
       deaths: this.deaths, by: from || 'the king’s men',
-      next: 'The mediums carry him back to the outer court. He has done this before.' };
+      next: this.chapter === 'dungeon' ? 'Your equipment remains yours. Rise and try this dungeon again.'
+        : 'The mediums carry him back to the outer court. He has done this before.' };
     this.out(null, this.lastDown);
   }
 
@@ -358,6 +426,7 @@ class Shrine {
       this.rouseRoom(p.x, p.y);              // steel on a man is heard across a room
       if (f.hp <= 0) {
         f.dead = true; f.wornBy = 0; p.kills++;
+        this.awardXP(p, f.kind);
         this.ev.push(['kill', rd(f.x), rd(f.y), f.kind]);
       } else {
         f.state = 'hunt'; f.lostT = 0;
@@ -656,17 +725,26 @@ class Shrine {
     const pick = [];
     while (pick.length < 2 && pool.length) pick.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     if (!pick.length) pick.push('mend');
-    this.offer = pick.map((g) => ({ key: g, name: GIFTS[g].name, blurb: GIFTS[g].blurb }));
+    if (this.chapter === 'dungeon') {
+      // Deliberate treasure options for each room, both useful and distinct.
+      pick.length = 0;
+      pick.push(...(this.map.rewards || []));
+    }
+    this.offer = pick.map((g) => this.chapter === 'dungeon'
+      ? ({ key: g, name: GEAR[g].name, blurb: GEAR[g].blurb, slot: GEAR[g].slot, tier: GEAR[g].tier })
+      : ({ key: g, name: GIFTS[g].name, blurb: GIFTS[g].blurb }));
     this.phase = 'gift';
-    this.out(null, { t: 'gift', offer: this.offer, chamber: this.chamberN + 1,
-      of: require('./shrine').CHAMBERS.length, next: this.map.last ? null : 'The next door is already open.' });
+    this.out(null, { t: 'gift', offer: this.offer, chapter: this.chapter, chamber: this.map.step,
+      of: this.map.total, next: this.map.last ? null : 'The next door is already open.' });
   }
   takeGift(pid, key) {
     if (this.phase !== 'gift' || !this.offer) return;
     const p = this.players.get(pid); if (!p || !p.host) return;
     const g = this.offer.find((o) => o.key === key) || this.offer[0];
     for (const q of this.players.values()) {
-      if (!q.gifts.includes(g.key) || g.key === 'mend') {
+      if (this.chapter === 'dungeon') {
+        this.equip(q, g.key);
+      } else if (!q.gifts.includes(g.key) || g.key === 'mend') {
         if (g.key !== 'mend') q.gifts.push(g.key);
         GIFTS[g.key].apply(q);
       }
@@ -680,16 +758,23 @@ class Shrine {
     this.phase = 'done';
     const secs = +(this.time - this.runStart).toFixed(1);
     const all = [...this.players.values()];
-    const rec = { won: true, act: 2, by: all[0] ? all[0].name : 'Chaminuka', secs,
+    const rec = { won: true, act: this.chapter === 'dungeon' ? 3 : 2,
+      by: all[0] ? all[0].name : 'Chaminuka', secs,
       deaths: this.deaths, kills: all.reduce((n, q) => n + q.kills, 0),
       gifts: all[0] ? all[0].gifts.slice() : [], boons: this.load.boons.slice(),
-      builds: all.map((p) => p.build) };
+      builds: all.map((p) => p.build),
+      equipment: all.map((p) => p.gear || {}), levels: all.map((p) => p.level || 1) };
     if (this.onRun) this.onRun(rec);
     this.lastDone = Object.assign({ t: 'done' }, rec, {
-      line: 'The captain of the guard is dead at the inner shrine, and the king knows the boy’s name.',
-      next: 'ACT III — THE KING’S HOUSE. Not built yet. This is as far as the road goes.',
+      chapter: this.chapter, canDungeon: this.chapter === 'shrine',
+      line: this.chapter === 'dungeon'
+        ? 'Chaminuka has defeated the Ash Warlord. He carries the weapons and wisdom of his ancestors.'
+        : 'The captain of the guard is dead at the inner shrine, and the king knows the boy’s name.',
+      next: this.chapter === 'dungeon'
+        ? 'THE ROAD CONTINUES — stronger, but the king is still watching.'
+        : 'ACT III — THE ANCESTRAL DUNGEON. Six more rooms, new equipment and two bosses await.',
       board: this.records ? this.records.top() : null,
-      finale: require('./story').scenes('finale'),
+      finale: this.chapter === 'dungeon' ? require('./story').scenes('finale') : [],
     });
     this.out(null, this.lastDone);
   }
@@ -752,7 +837,13 @@ class Shrine {
       dodgeCd: +Math.max(0, p.dodgeReady - this.time).toFixed(1),
       target: t ? { id: t.id, name: t.name, kind: t.kind } : null,
       canReturn: p.form === 'spirit' && hyp(p.x, p.y, p.bodyX, p.bodyY) < 40 ? 1 : 0,
-      left: this.hostiles().length, chamber: this.chamberN + 1,
+      left: this.hostiles().length, chapter: this.chapter,
+      chamber: this.map ? this.map.step : this.chamberN + 1,
+      total: this.map?.total || 4, level: p.level || 1, xp: p.xp || 0,
+      nextXp: (p.level || 1) * 50,
+      gear: Object.values(p.gear || {}).filter(Boolean).map((key) => ({ key, name: GEAR[key]?.name || key,
+        slot: GEAR[key]?.slot || '' })),
+      attack: +p.damage.toFixed(2), reach: Math.round(p.reach),
       gifts: p.gifts.map((g) => ({ key: g, name: GIFTS[g].name, blurb: GIFTS[g].blurb })),
       carried: (p.carried || []).map((a) => ({ key: a, name: CARRIED[a].name, blurb: CARRIED[a].blurb })),
       boons: this.load.boons, refusals: p.refusals, kills: p.kills,
@@ -761,5 +852,5 @@ class Shrine {
   }
 }
 
-module.exports = { Shrine, BUILDS, GIFTS, CARRIED, FROM_AFFINITY, TICK, DT, SPEAR_REACH, OUT_MAX,
+module.exports = { Shrine, BUILDS, GIFTS, GEAR, CARRIED, FROM_AFFINITY, TICK, DT, SPEAR_REACH, OUT_MAX,
   VACANT_MULT, WORN_TIME, DODGE_TIME, IFRAME, LEASH, LEASH_GRACE, TAKE_SETTLE };
