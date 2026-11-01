@@ -124,6 +124,7 @@
         <p><b>The house</b> is the third clock, across the top. It climbs when you're rumbled, when somebody
         finds a man you left slumped, or when the child is found out of his cradle. At each threshold more
         patrols walk in; fill it and they take him back and you start the night again.</p>
+        <p><b>Locked doors depend on who you are wearing, not on the alarm.</b> Carry the child into the public hall as a priest, set him down with INFANT (SPACE), then leave the priest using POSSESS (E). Wear a servant, collect the child again, and head east. You have a short protected handoff window before patrols can return him.</p>
         <p><b>Two gates.</b> The servants' door is the long safe road and only a servant carries him
         unremarked. The postern is short but lies inside the barracks, so only a soldier reaches it — and a
         soldier holding an infant is damning. The captain may use either, and is watched the whole way.</p>
@@ -1066,6 +1067,40 @@ function drawWorld() {
   const j0 = Math.max(0, Math.floor(cam.y / TILE)), j1 = Math.min(map.h - 1, Math.floor((cam.y + VH) / TILE));
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) drawTile(map.rows[j][i], i, j, i * TILE, j * TILE);
 
+  // Role locks are not alarms. Tell players which disguise opens a nearby
+  // doorway instead of leaving a mysterious red wall in their way.
+  if (mp && me && me.form === 'worn') {
+    const blockedDoor = (map.doors || []).find((d) => {
+      const center = d.tiles[0], dx = center[0] * TILE + TILE / 2;
+      const dy = center[1] * TILE + TILE / 2;
+      return !d.roles.includes(me.role) && hyp(mp.x, mp.y, dx, dy) < 106;
+    });
+    if (blockedDoor) {
+      const t = blockedDoor.tiles[0], dx = t[0] * TILE + TILE / 2;
+      const dy = t[1] * TILE + TILE / 2;
+      txt(blockedDoor.name.toUpperCase() + ' LOCKED', dx, dy - 36, 11, '#ff8b7a', 'center');
+      txt('NEEDS ' + blockedDoor.roles.map((r) => (ROLES[r] || {name:r}).name.toUpperCase()).join(' / '),
+        dx, dy - 22, 9, '#ffd98a', 'center');
+    }
+  }
+
+  // A priest can get the child out of the nursery but cannot use either
+  // escape wing. Highlight a real nearby servant for the required handoff.
+  if (mp && me && me.carrying && me.role === 'priest') {
+    let nearest = null, nd = Infinity;
+    for (const b of B.values()) {
+      if (b.role !== 'servant' || b.st !== 0) continue;
+      const d = hyp(mp.x, mp.y, b.x, b.y);
+      if (d < nd) { nd = d; nearest = b; }
+    }
+    if (nearest) {
+      const pulse = 20 + Math.sin(T * 4) * 3;
+      ctx.strokeStyle = '#79c7a4'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(nearest.x, nearest.y + 4, pulse, 0, TAU); ctx.stroke();
+      txt('NEXT: SERVANT', nearest.x, nearest.y - 38, 10, '#79c7a4', 'center');
+    }
+  }
+
   // the ways out — there is more than one, and they want different bodies
   const pulse = Math.sin(T * 3) * 3;
   for (const e of (map.exits || [])) {
@@ -1280,13 +1315,17 @@ function drawHUD() {
     for (const g of gates) { const d = mp2 ? hyp(g.x, g.y, mp2.x, mp2.y) : 0; if (d < pd) { pd = d; pick = g; } }
     obj = pick
       ? `You have him — make for ${pick.name.toUpperCase()}${me.role === 'servant' ? '' : ' (he is damning in those arms)'}`
-      : 'You have him — but a priest can reach no gate. Set him down and find other arms.';
+      : 'PRIEST CANNOT EXIT: INFANT to set down, POSSESS a servant, then head EAST.';
   }
   else if (inf[2]) { const nf = names.get(inf[2]); obj = (nf && inf[2] !== myId ? nf.n : 'An ally') + ' is carrying the child'; }
-  else if (me.canTake) obj = 'SPACE — pick up the child';
+  else if (me.canTake) obj = 'INFANT / SPACE — pick up the child';
   else { const d = mp2 ? Math.round(hyp(inf[0], inf[1], mp2.x, mp2.y) / TILE) : 0;
     obj = `The child is in ${snap.infz || 'the palace'} — ${d}m away`; }
   txt(obj, W / 2, H - 14, 11, me.carrying ? '#79c7a4' : '#ffd98a', 'center');
+  if (!me.carrying && !inf[2] && snap.hand > 0) {
+    txt('HANDOFF: ' + snap.hand + 's before patrols can return the child',
+      W / 2, H - 35, 11, '#79c7a4', 'center');
+  }
 
   // what you carry between attempts
   if (me.affinities && me.affinities.length) {
