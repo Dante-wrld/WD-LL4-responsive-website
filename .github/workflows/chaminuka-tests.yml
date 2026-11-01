@@ -1,0 +1,27 @@
+name: Chaminuka gameplay tests
+
+on:
+  push:
+    branches: [chaminuka-release, chaminuka-fixes]
+  pull_request:
+    branches: [chaminuka-release]
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout game source
+        uses: actions/checkout@v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run full game test suite
+        run: npm test
