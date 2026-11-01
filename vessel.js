@@ -34,6 +34,9 @@ const POSSESS_TIME = 48;       // seconds before he wakes on his own
 const STUTTER_AT = 12;         // he starts fighting you below this
 const SLUMP_TIME = 35;         // how long he lies there after you step out
 const POSSESS_RANGE = 46;
+// A deliberate change of host needs time before an unattended child is reported.
+// This is a short grace period, not immunity while carrying the infant.
+const HANDOFF_GRACE = 12;
 // --- suspicion --------------------------------------------------------------
 const SUSP_MAX = 100;
 const S_WRONG_ZONE = 13;       // per second, seen somewhere your role does not belong
@@ -146,7 +149,8 @@ class Room {
       state: 'idle', wornBy: 0, slumpUntil: 0, alertT: 0, ignoreUntil: 0,
       orderUntil: 0, orderX: 0, orderY: 0, homeX: b.route[0].x, homeY: b.route[0].y,
     }));
-    this.infant = { x: this.map.infant.x, y: this.map.infant.y, carrier: 0, home: { x: this.map.infant.x, y: this.map.infant.y } };
+    this.infant = { x: this.map.infant.x, y: this.map.infant.y, carrier: 0, safeUntil: 0,
+      home: { x: this.map.infant.x, y: this.map.infant.y } };
     let n = 0;
     for (const pl of this.players.values()) {
       Object.assign(pl, { form: 'spirit', bodyId: 0, susp: 0, hostT: 0, carrying: false,
@@ -288,6 +292,7 @@ class Room {
     if (this.infant.carrier) return false;
     if (hyp(this.infant.x, this.infant.y, p.x, p.y) > 44) return false;
     p.carrying = true; this.infant.carrier = p.id;
+    this.infant.safeUntil = 0;
     this.ev.push(['feed', `${p.name} lifts the child`]);
     return true;
   }
@@ -295,7 +300,8 @@ class Room {
     if (!p.carrying) return;
     p.carrying = false; this.infant.carrier = 0;
     this.infant.x = p.x; this.infant.y = p.y;
-    this.ev.push(['feed', `the child is set down`]);
+    this.infant.safeUntil = this.time + HANDOFF_GRACE;
+    this.ev.push(['feed', `The child is set down. ${HANDOFF_GRACE} seconds to change bodies and pick him up.`]);
   }
 
   // ---------------------------------------------------------------- noticing
@@ -499,7 +505,7 @@ class Room {
       }
     }
     // an unattended child gets carried back to the cradle
-    if (!this.infant.carrier) {
+    if (!this.infant.carrier && this.time >= (this.infant.safeUntil || 0)) {
       for (const b of this.bodies) {
         if (b.state !== 'idle' && b.state !== 'alert') continue;
         if (hyp(b.x, b.y, this.infant.x, this.infant.y) > 48) continue;
