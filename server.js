@@ -110,6 +110,7 @@ function start(port, opts) {
         case 'again': room.again(ws.pid); break;
         case 'road': room.choose(ws.pid, String(m.key || '')); break;
         case 'gift': { if (room.shrine) room.shrine.takeGift(ws.pid, String(m.key || '')); break; }
+        case 'dungeon': room.enterDungeon(ws.pid); break;
         case 'skip': room.skipTo(ws.pid, String(m.to || '')); break;
         case 'go': room.go(ws.pid); break;
         case 'seen': room.seen(ws.pid); break;
