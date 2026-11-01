@@ -42,7 +42,7 @@ test('all thirteen Act II rooms have four wall-side braziers and remain fully tr
 });
 
 test('lighting pass preserves current crisp camera and boss introductions', () => {
-  assert.match(html, /ZOOM = 1;/, 'camera remains integer-zoom');
+  assert.match(html, /const ZOOM = mobileView \? 0\.85 : 1;/, 'camera remains integer-zoom');
   assert.doesNotMatch(html, /function pixelateWorld\(/, 'blurred resampling remains deleted');
   assert.match(html, /function drawVeil2\(\) \{ veil\(0\.68,/);
   assert.match(html, /function drawVeil\(\) \{ veil\(0\.34,/);
