@@ -803,7 +803,7 @@ function onSnap2(m) {
   for (const p of m.p) {
     let o = P.get(p.i); if (!o) { o = { x: p.x, y: p.y, walk: 0 }; P.set(p.i, o); }
     Object.assign(o, { tx: p.x, ty: p.y, a: p.a, f: p.f, w: p.w, bx: p.bx, by: p.by, v: p.v,
-      hp: p.hp, hm: p.hm, d: p.d, sw: p.sw, dg: p.dg, iv: p.iv, i: p.i });
+      hp: p.hp, hm: p.hm, d: p.d, asp: p.asp, sw: p.sw, dg: p.dg, iv: p.iv, i: p.i });
     seen.add(p.i);
   }
   for (const id of [...P.keys()]) if (!seen.has(id)) P.delete(id);
@@ -883,6 +883,14 @@ function drawWorld2() {
     ctx.setLineDash([6, 6]);
     ctx.beginPath(); ctx.moveTo(mine.x, mine.y); ctx.lineTo(mine.bx, mine.by); ctx.stroke();
     ctx.setLineDash([]);
+  }
+  // All players see the currently transformed spirit, even in a borrowed body.
+  for (const [, p] of P) {
+    if (p.d || !p.asp) continue;
+    ctx.strokeStyle = ({ panther: '#86d6b0', eagle: '#9bc8ff', ancestor: '#d2a6ff' })[p.asp] || '#d2a6ff';
+    ctx.lineWidth = 2.5; ctx.globalAlpha = 0.55 + Math.sin(T * 5) * 0.18;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 19 + Math.sin(T * 6) * 2, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
   }
   drawParts();
   ctx.restore();
