@@ -281,7 +281,8 @@ class Shrine {
     return { t: 'map2', act: 2, w: m.w, h: m.h, rows: m.rows, name: m.name, line: m.line,
       index: m.index, last: m.last, chapter: m.chapter, step: m.step, total: m.total,
       boss: m.boss, door: m.door, phase: this.phase,
-      foes: Object.fromEntries(Object.entries(FOES).map(([k, v]) => [k, { name: v.name, col: v.col }])),
+      foes: Object.fromEntries(Object.entries(FOES).map(([k, v]) => [k,
+        { name: v.name, col: v.col, reach: v.reach, boss: !!v.boss }])),
       boons: this.load.boons };
   }
   syncTo(pid) { this.sendLobby(); if (this.phase !== 'lobby') this.out(pid, this.mapMsg()); }
