@@ -510,3 +510,20 @@ handoff. Unattended hosts remain discoverable after eight seconds; a body
 forcibly expelled by suspicion or host timeout still triggers its normal alarm.
 The exact palace rescue route has been reproduced from start to victory with
 no alarm and is covered by the existing full-route test.
+
+## v0.10.0: The Ancestral Dungeon (optional Act III)
+
+After defeating the original four shrine chambers, the host can select
+**ENTER THE ANCESTRAL DUNGEON** to continue the quest. Six new rooms include
+an armory, caves, a treasure chamber, a forge, and boss fights against the
+**Tomb Warden** and **Ash Warlord**. Clearing each room offers two equipment
+prizes for the co-op party. Weapons, armor, and relics improve combat and
+spiritual abilities; higher-tier equipment replaces old slot bonuses.
+
+The player who defeats an enemy earns XP and levels up to become stronger.
+The Act II HUD now displays your level, XP, equipment, and boss health.
+Checkpoints preserve these within the current save, and a failed dungeon fight
+can be retried without resetting earned gear. See `DUNGEON_QUEST.md`.
+
+On Render's free tier, these saves remain temporary. Real phone-to-phone
+multiplayer gameplay in the expanded rooms is not yet independently verified.
