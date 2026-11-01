@@ -527,3 +527,12 @@ can be retried without resetting earned gear. See `DUNGEON_QUEST.md`.
 
 On Render's free tier, these saves remain temporary. Real phone-to-phone
 multiplayer gameplay in the expanded rooms is not yet independently verified.
+
+### v0.10.1: Fix endless camera shake on Act II respawn
+
+The Act II camera now decays damage, hit, and defeat shake every rendered frame
+and clamps tiny residual offsets to zero. Starting any new shrine/dungeon room
+(including pressing **RISE** after defeat) also clears the previous camera shake
+immediately. No gameplay, equipment, combat timing or touchscreen bindings are
+changed. See `test/camera-shake.test.js` for an executable decay regression
+using the real renderer preamble and a room-transition reset assertion.
