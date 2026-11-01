@@ -80,6 +80,7 @@ test('transformation activates on input, times out and respects cooldown', () =>
   s.enterTrials(host.id);
   clearRoom(sh, p); // Panther Aspect earned
   assert.deepEqual(p.aspects, ['panther']);
+  for (const foe of sh.foes) foe.dead = true; // isolate timers from combat and death
   sh.setInput(p.id, { skill: true }); sh.tick();
   assert.equal(p.aspect, 'panther');
   assert.equal(sh.useAspect(p), false, 'cannot chain transformations instantly');
