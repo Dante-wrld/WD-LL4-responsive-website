@@ -884,28 +884,40 @@ function drawFoe(f) {
   const worn = f.wornBy;
   // a man winding up to hit you is the most important thing on the screen
   if (f.state === 'strike' && !worn) {
-    const r = (spec.reach || 60);
+    // Match the visible wind-up to the real hit reach, especially for bosses.
+    const r = spec.reach || 78;
     ctx.fillStyle = 'rgba(255,90,90,.16)';
     ctx.beginPath(); ctx.moveTo(f.x, f.y);
-    ctx.arc(f.x, f.y, 78, f.a - 0.9, f.a + 0.9); ctx.closePath(); ctx.fill();
+    ctx.arc(f.x, f.y, r, f.a - 0.9, f.a + 0.9); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(f.x, f.y, 78, f.a - 0.9, f.a + 0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(f.x, f.y, r, f.a - 0.9, f.a + 0.9); ctx.stroke();
   }
   if (worn) {
     const nf = names.get(worn) || { idx: 0 };
     ctx.strokeStyle = PCOL[nf.idx % 4]; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(f.x, f.y, 19 + Math.sin(T * 4) * 1.5, 0, TAU); ctx.stroke();
   }
+  if (spec.boss) {
+    ctx.strokeStyle = spec.col; ctx.globalAlpha = 0.4 + 0.2 * Math.sin(T * 3);
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(f.x, f.y - 3, 25, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   if (f.hurt) ctx.globalAlpha = 0.55;
-  person(f.x, f.y, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1);
+  if (spec.boss) {
+    ctx.save(); ctx.translate(f.x, f.y);
+    ctx.scale(1.32, 1.32);
+    person(0, 0, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1);
+    ctx.restore();
+  } else person(f.x, f.y, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1);
   ctx.globalAlpha = 1;
   // facing, so a telegraph can be read
   ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + Math.cos(f.a) * 18, f.y + Math.sin(f.a) * 18); ctx.stroke();
   const label = worn ? (worn === myId ? 'you, wearing him' : 'taken') : spec.name;
-  txt(label, f.x, f.y - 30, 9, worn ? '#9ad6ff' : spec.col, 'center');
+  txt(label, f.x, f.y - (spec.boss ? 43 : 30), spec.boss ? 11 : 9,
+    worn ? '#9ad6ff' : spec.col, 'center');
   if (f.hpMax > 1) {
-    const w = 26;
+    const w = spec.boss ? 56 : 26;
     ctx.fillStyle = '#1a1626'; ctx.fillRect(f.x - w / 2, f.y - 24, w, 3);
     ctx.fillStyle = worn ? '#9ad6ff' : '#ff6b6b';
     ctx.fillRect(f.x - w / 2, f.y - 24, w * (f.hp / f.hpMax), 3);
