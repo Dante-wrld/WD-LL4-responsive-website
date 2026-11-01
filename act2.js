@@ -19,7 +19,7 @@
  *
  * Death is not the end of the story: it costs you the chamber, not the campaign.
  */
-const { chamber, CHAMBERS, DUNGEONS, FOES } = require('./shrine');
+const { chamber, CHAMBERS, DUNGEONS, TRIALS, FOES } = require('./shrine');
 const { TILE, TAU, clamp, hyp, rd, angDiff, blocked, moveBy, los, canSee,
   flowField, flowStep } = require('./grid');
 const { loadout } = require('./road');
@@ -102,6 +102,12 @@ const FROM_AFFINITY = { veiled: 'veiled', quick: 'quick', bold: 'bold' };
 
 /** Equipable prizes are real stat upgrades, not labels. Each category replaces
  *  its previous item, so better equipment never stacks with the weaker version. */
+const ASPECTS = Object.freeze({
+  panther: { name: 'Panther Aspect', blurb: 'Move 30% faster while transformed.' },
+  eagle: { name: 'Eagle Aspect', blurb: 'Move faster as a spirit, take bodies from further away and extend the thread.' },
+  ancestor: { name: 'Ancestor Aspect', blurb: 'Hit harder and protect your vacant body.' },
+});
+const ASPECT_TIME = 8, ASPECT_COOLDOWN = 15;
 const GEAR = Object.freeze({
   bronze_spear: { name: 'Bronze Spear', slot: 'weapon', tier: 1, blurb: '+12 reach, +0.25 attack', stats: { reach: 12, damage: .25 } },
   iron_spear: { name: 'Iron Spear', slot: 'weapon', tier: 2, blurb: '+18 reach, +0.55 attack', stats: { reach: 18, damage: .55 } },
@@ -147,8 +153,9 @@ class Shrine {
       refusals: 0, kills: 0, struckWhileWorn: false,
       gifts: [], affinities: [], build: 'unbound',
       gear: { weapon: null, armor: null, relic: null }, xp: 0, level: 1,
+      aspects: [], aspect: null, aspectUntil: 0, aspectReady: 0, aspectIndex: 0,
       inp: { mx: 0, my: 0, a: 0, atk: false, atkEdge: false, dodge: false, dodgeEdge: false,
-        use: false, useEdge: false, pick: 0 },
+        use: false, useEdge: false, skill: false, skillEdge: false, pick: 0 },
     };
     this.players.set(id, p);
     if (this.map) { p.x = this.map.start.x; p.y = this.map.start.y; }
@@ -170,6 +177,7 @@ class Shrine {
     if (m.atk && !i.atk) i.atkEdge = true; i.atk = !!m.atk;
     if (m.dodge && !i.dodge) i.dodgeEdge = true; i.dodge = !!m.dodge;
     if (m.use && !i.use) i.useEdge = true; i.use = !!m.use;
+    if (m.skill && !i.skill) i.skillEdge = true; i.skill = !!m.skill;
     if (Number.isFinite(+m.pick)) i.pick = +m.pick;
   }
   sendLobby() {
@@ -189,6 +197,7 @@ class Shrine {
       p.affinities = (o.affinities || []).slice();
       p.gifts = []; p.gear = { weapon: null, armor: null, relic: null };
       p.xp = 0; p.level = 1;
+      p.aspects = []; p.aspect = null; p.aspectUntil = 0; p.aspectReady = 0; p.aspectIndex = 0;
       p.hpMax = this.load.maxHp; p.hp = p.hpMax;
       p.reach = SPEAR_REACH; p.damage = this.load.damage;
       p.vacant = VACANT_MULT; p.noticeMult = this.load.noticeMult;
@@ -209,8 +218,15 @@ class Shrine {
 
   /** Safe checkpoint after the original four shrine rooms. Keeps builds,
    *  gifts and earned progression while opening a new six-room quest. */
-  beginDungeon() {
+  beginTrials() {
     if (this.phase !== 'done' || this.chapter !== 'shrine') return false;
+    this.chapter = 'trials'; this.runStart = this.time; this.lastDone = null;
+    for (const p of this.players.values()) { p.hp = p.hpMax; p.dead = false; }
+    this.enterChamber(CHAMBERS.length + DUNGEONS.length);
+    return true;
+  }
+  beginDungeon() {
+    if (this.phase !== 'done' || !['shrine', 'trials'].includes(this.chapter)) return false;
     this.chapter = 'dungeon';
     this.runStart = this.time; this.lastDone = null;
     for (const p of this.players.values()) {
@@ -251,6 +267,17 @@ class Shrine {
     }
   }
 
+  useAspect(p) {
+    if (!p || p.dead || !p.aspects?.length || this.time < (p.aspectReady || 0)) return false;
+    if (p.aspect && this.time < p.aspectUntil) return false;
+    const next = p.aspects[(p.aspectIndex || 0) % p.aspects.length];
+    if (!ASPECTS[next]) return false;
+    p.aspectIndex = ((p.aspectIndex || 0) + 1) % p.aspects.length;
+    p.aspect = next; p.aspectUntil = this.time + ASPECT_TIME; p.aspectReady = this.time + ASPECT_COOLDOWN;
+    this.ev.push(['feed', p.name + ' transforms: ' + ASPECTS[next].name]);
+    this.ev.push(['ban', ASPECTS[next].name.toUpperCase(), ASPECTS[next].blurb]);
+    return true;
+  }
   enterChamber(n) {
     this.chamberN = n;
     this.map = chamber(n);
@@ -269,6 +296,7 @@ class Shrine {
       if (p.form === 'worn') p.foeId = 0;
       p.form = 'self'; p.swingT = 0; p.swingPhase = ''; p.recover = 0; p.dodgeT = 0;
       p.out = p.outMax; p.struckWhileWorn = false; p.strain = 0;
+      p.aspect = null; p.aspectUntil = 0;
       p.x = this.map.start.x + (i % 2) * 20; p.y = this.map.start.y + (i > 1 ? 24 : 0); i++;
     }
     this.phase = 'run';
@@ -307,7 +335,7 @@ class Shrine {
   takeTarget(p) {
     if (p.form !== 'spirit') return null;
     const bold = p.affinities.includes('bold');
-    let best = null, bd = TAKE_RANGE + (p.takeBonus || 0);
+    let best = null, bd = TAKE_RANGE + (p.takeBonus || 0) + (p.aspect === 'eagle' ? 36 : 0);
     for (const f of this.foes) {
       if (f.dead || f.wornBy) continue;
       if (f.state === 'strike' && !bold) continue;
@@ -366,7 +394,7 @@ class Shrine {
     if (p.dead || this.time < p.hurtT) return;
     if (p.form === 'self' && p.dodgeT > 0) { this.ev.push(['whiff', rd(p.x), rd(p.y)]); return; }
     const mult = p.form === 'self' ? 1 : p.vacant;
-    const dmg = Math.max(1, Math.round(n * mult));
+    const dmg = Math.max(1, Math.round(n * mult) - (p.aspect === 'ancestor' ? 1 : 0));
     p.hp -= dmg;
     p.hurtT = this.time + IFRAME;
     const b = this.bodyOf(p);
@@ -381,7 +409,7 @@ class Shrine {
       this.ev.push(['ban', 'THE DEBT IS PAID', 'Somebody died for him on the road. Not today.']);
       return;
     }
-    p.dead = true;
+    p.dead = true; p.aspect = null; p.aspectUntil = 0;
     if (p.form === 'worn') this.release(p);
     p.form = 'self';
     this.ev.push(['down', rd(p.x), rd(p.y), p.id]);
@@ -416,7 +444,7 @@ class Shrine {
       if (angDiff(Math.atan2(f.y - p.y, f.x - p.x), p.aim) > SPEAR_ARC) continue;
       if (!los(this.map, p.x, p.y, f.x, f.y)) continue;
       p.swingHit.add('f' + f.id);
-      f.hp -= p.damage; f.hurtT = this.time + 0.2;
+      f.hp -= p.damage + (p.aspect === 'ancestor' ? 0.65 : 0); f.hurtT = this.time + 0.2;
       // You can knock a man off his stride, but not out of a blow he has already
       // committed to, and not twice in a row. Mashing does not win fights here.
       if (f.state !== 'strike' && this.time >= (f.stunOkAt || 0)) {
@@ -445,9 +473,11 @@ class Shrine {
   updatePlayers() {
     for (const p of this.players.values()) {
       const i = p.inp;
-      const clearEdges = () => { i.atkEdge = false; i.dodgeEdge = false; i.useEdge = false; };
+      const clearEdges = () => { i.atkEdge = false; i.dodgeEdge = false; i.useEdge = false; i.skillEdge = false; };
       if (p.dead || !p.connected) { clearEdges(); continue; }
       p.aim = i.a;
+      if (p.aspect && this.time >= p.aspectUntil) p.aspect = null;
+      if (i.skillEdge) this.useAspect(p);
 
       // --- stepping between bodies
       if (i.useEdge) {
@@ -492,6 +522,7 @@ class Shrine {
 
       // --- moving
       let sp = p.form === 'spirit' ? OUT_SPEED : p.form === 'worn' ? FOES[this.foe(p.foeId) ? this.foe(p.foeId).kind : 'spearman'].speed * 1.25 : SPEED;
+      if (p.aspect === 'panther' || (p.aspect === 'eagle' && p.form === 'spirit')) sp *= p.aspect === 'panther' ? 1.3 : 1.25;
       if (p.swingPhase === 'tell' || p.swingPhase === 'swing') sp *= 0.35;
       if (p.swingPhase === 'rest') sp *= 0.7;
       let mx = i.mx, my = i.my;
@@ -515,7 +546,7 @@ class Shrine {
           p.out = Math.min(p.outMax, p.out + OUT_REGEN * DT);
           // how far you have dragged this man from your own body
           const pull = hyp(p.x, p.y, p.bodyX, p.bodyY);
-          if (pull > LEASH) {
+          if (pull > LEASH + (p.aspect === 'eagle' ? 90 : 0)) {
             p.strain += DT;
             if (p.strain > LEASH_GRACE) {
               this.release(p); p.strain = 0;
@@ -726,12 +757,12 @@ class Shrine {
     const pick = [];
     while (pick.length < 2 && pool.length) pick.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     if (!pick.length) pick.push('mend');
-    if (this.chapter === 'dungeon') {
+    if (this.chapter !== 'shrine') {
       // Deliberate treasure options for each room, both useful and distinct.
       pick.length = 0;
       pick.push(...(this.map.rewards || []));
     }
-    this.offer = pick.map((g) => this.chapter === 'dungeon'
+    this.offer = pick.map((g) => this.chapter !== 'shrine'
       ? ({ key: g, name: GEAR[g].name, blurb: GEAR[g].blurb, slot: GEAR[g].slot, tier: GEAR[g].tier })
       : ({ key: g, name: GIFTS[g].name, blurb: GIFTS[g].blurb }));
     this.phase = 'gift';
@@ -743,8 +774,11 @@ class Shrine {
     const p = this.players.get(pid); if (!p || !p.host) return;
     const g = this.offer.find((o) => o.key === key) || this.offer[0];
     for (const q of this.players.values()) {
-      if (this.chapter === 'dungeon') {
+      if (this.chapter !== 'shrine') {
         this.equip(q, g.key);
+        if (this.chapter === 'trials' && this.map.mastery && !q.aspects?.includes(this.map.mastery)) {
+          q.aspects ||= []; q.aspects.push(this.map.mastery);
+        }
       } else if (!q.gifts.includes(g.key) || g.key === 'mend') {
         if (g.key !== 'mend') q.gifts.push(g.key);
         GIFTS[g.key].apply(q);
@@ -767,13 +801,15 @@ class Shrine {
       equipment: all.map((p) => p.gear || {}), levels: all.map((p) => p.level || 1) };
     if (this.onRun) this.onRun(rec);
     this.lastDone = Object.assign({ t: 'done' }, rec, {
-      chapter: this.chapter, canDungeon: this.chapter === 'shrine',
+      chapter: this.chapter, canDungeon: ['shrine', 'trials'].includes(this.chapter), canTrials: this.chapter === 'shrine',
       line: this.chapter === 'dungeon'
         ? 'Chaminuka has defeated the Ash Warlord. He carries the weapons and wisdom of his ancestors.'
+        : this.chapter === 'trials' ? 'Three spirit transformations awakened in the ancestral trials.'
         : 'The captain of the guard is dead at the inner shrine, and the king knows the boy’s name.',
       next: this.chapter === 'dungeon'
         ? 'THE ROAD CONTINUES — stronger, but the king is still watching.'
-        : 'ACT III — THE ANCESTRAL DUNGEON. Six more rooms, new equipment and two bosses await.',
+        : this.chapter === 'trials' ? 'ACT III — THE ANCESTRAL DUNGEON awaits your mastered spirit.'
+        : 'Choose the OPTIONAL ACT II SPIRIT TRIALS or ACT III ANCESTRAL DUNGEON.',
       board: this.records ? this.records.top() : null,
       finale: this.chapter === 'dungeon' ? require('./story').scenes('finale') : [],
     });
@@ -813,7 +849,7 @@ class Shrine {
         return { i: p.id, x: rd(p.x), y: rd(p.y), a: +p.aim.toFixed(2),
           f: p.form === 'self' ? 0 : p.form === 'spirit' ? 1 : 2, w: p.foeId,
           bx: rd(b.x), by: rd(b.y), v: b.vacant ? 1 : 0,
-          hp: p.hp, hm: p.hpMax, d: p.dead ? 1 : 0, sw: p.swingPhase || '',
+          hp: p.hp, hm: p.hpMax, d: p.dead ? 1 : 0, asp: p.aspect || '', sw: p.swingPhase || '',
           dg: p.dodgeT > 0 ? 1 : 0, iv: this.time < p.hurtT ? 1 : 0 };
       }),
       f: this.foes.filter((f) => !f.dead).map((f) => [f.id, f.kind, rd(f.x), rd(f.y), +f.aim.toFixed(2),
@@ -842,6 +878,10 @@ class Shrine {
       chamber: this.map ? this.map.step : this.chamberN + 1,
       total: this.map?.total || 4, level: p.level || 1, xp: p.xp || 0,
       nextXp: (p.level || 1) * 50,
+      aspects: (p.aspects || []).map((key) => ({ key, name: ASPECTS[key]?.name || key })),
+      aspect: p.aspect || null, aspectT: Math.max(0, +((p.aspectUntil || 0) - this.time).toFixed(1)),
+      aspectCd: Math.max(0, +((p.aspectReady || 0) - this.time).toFixed(1)),
+      nextAspect: p.aspects?.length ? ASPECTS[p.aspects[(p.aspectIndex || 0) % p.aspects.length]]?.name : null,
       gear: Object.values(p.gear || {}).filter(Boolean).map((key) => ({ key, name: GEAR[key]?.name || key,
         slot: GEAR[key]?.slot || '' })),
       attack: +p.damage.toFixed(2), reach: Math.round(p.reach),
@@ -853,5 +893,5 @@ class Shrine {
   }
 }
 
-module.exports = { Shrine, BUILDS, GIFTS, GEAR, CARRIED, FROM_AFFINITY, TICK, DT, SPEAR_REACH, OUT_MAX,
+module.exports = { Shrine, BUILDS, GIFTS, GEAR, ASPECTS, CARRIED, FROM_AFFINITY, TICK, DT, SPEAR_REACH, OUT_MAX,
   VACANT_MULT, WORN_TIME, DODGE_TIME, IFRAME, LEASH, LEASH_GRACE, TAKE_SETTLE };
