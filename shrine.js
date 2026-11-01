@@ -49,6 +49,17 @@ function blank() {
 const put = (g, i, j, c) => { if (g[j] && g[j][i] !== undefined) g[j][i] = c; };
 const pillar = (g, i, j) => { put(g, i, j, 'T'); };
 
+/* Fire, so a room is lit by something inside it rather than evenly by nothing.
+ *
+ * Against the side walls, flanking the way in and the way out, rather than in
+ * the corners. Corners proved to be the wrong instinct twice over: the HUD rails
+ * cover the top 43px and bottom 83px of the view, and with a 19-tile room in a
+ * 540px window the lower corners sit behind the bottom rail at every camera
+ * position, so half the fire was invisible and only its spill showed.
+ * These four columns stay inside the readable band at every camera position, and
+ * no pillar, foe, entry or door in any chamber, dungeon or trial occupies them. */
+const BRAZIERS = [[2, 5], [2, H - 6], [W - 3, 5], [W - 3, H - 6]];
+
 /** The four chambers. Enemy counts rise; so does the amount of cover, because a
  *  harder room you cannot break line of sight in is just a worse room. */
 const CHAMBERS = [
@@ -170,6 +181,7 @@ function chamber(n) {
   const spec = trials ? TRIALS[index] : dungeon ? DUNGEONS[index] : CHAMBERS[index];
   const g = blank();
   for (const [i, j] of spec.pillars) pillar(g, i, j);
+  for (const [i, j] of BRAZIERS) put(g, i, j, 'o');
   // the way in behind you, and the way on once the room is clear
   put(g, 0, 9, '.'); put(g, W - 1, 9, '.');
   return {

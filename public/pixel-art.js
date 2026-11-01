@@ -51,8 +51,10 @@
     }
 
     rect(ctx, sx, sy, size, size, floor[(h % 3)]);
-    rect(ctx, sx, sy + 30, size, 2, '#201c2e');
-    rect(ctx, sx + 30, sy, 2, size, '#201c2e');
+    // Only some tiles get an edge. A seam on every tile turns the floor into
+    // graph paper, which no hand-laid 16-bit floor has ever looked like.
+    if ((h % 5) < 2) rect(ctx, sx, sy + 30, size, 2, '#201c2e');
+    if ((h % 7) < 2) rect(ctx, sx + 30, sy, 2, size, '#201c2e');
     // Hand-cut flagstones and sparse leaf/petal sparks instead of a flat fill.
     rect(ctx, sx + 2, sy + 2, 15, 2, floor[2]);
     rect(ctx, sx + 20, sy + 20, 8, 2, floor[0]);
