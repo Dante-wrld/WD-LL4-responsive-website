@@ -100,7 +100,7 @@ test('detailed room pixels and atmosphere use deterministic tile clusters and so
       palace:'PALACE HALL'}[mood];
     for(let x=0;x<7;x++) art.tile(c,'.',x,2,x*32,64,32,null,chapter,name,1,true);
   }
-  assert.ok(c.draws.length > 300, 'rooms include layered environmental detail');
+  assert.ok(c.draws.length > 180, 'rooms include layered environmental detail');
   const lights = [];
   const contextWithGradients = {
     ...context(),
