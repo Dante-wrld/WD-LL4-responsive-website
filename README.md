@@ -536,3 +536,23 @@ and clamps tiny residual offsets to zero. Starting any new shrine/dungeon room
 immediately. No gameplay, equipment, combat timing or touchscreen bindings are
 changed. See `test/camera-shake.test.js` for an executable decay regression
 using the real renderer preamble and a room-transition reset assertion.
+
+
+## Pixel-art edition: whole-game visual overhaul (development branch)
+
+The optional **Spirit Trials** branch adds three Act II transformation-training rooms, two
+new bosses, Panther/Eagle/Ancestor aspects and room treasure. See `SPIRIT_TRIALS.md`.
+
+The full-game pixel-art revision gives Act I, Act II, the spirit trials and existing
+Ancestral Dungeon a shared retro RPG appearance: individually recognizable sprites
+for Chaminuka, palace roles and four bosses; per-room pixel floors, walls, braziers,
+and carved pillars; square heart and health UI; matching title, lobby, gift, defeat
+and multiplayer menu panels; and pixel-sampled story videos and illustrations.
+Original video playback remains as fallback when pixel sampling is unavailable.
+Keyboard, touch controls, synchronized rooms, story order, gameplay and checkpoints
+stay unchanged by the visual pass. The camera continues to use the same world size.
+
+**This look is not live on Render until its draft PR is reviewed and deployed.**
+The style remains top-down rather than converting the game to a new side-view combat
+engine. See `PIXEL_ART_DIRECTION.md` and `test/pixel-art.test.js` for details
+and validation; run `npm test` before merging.
