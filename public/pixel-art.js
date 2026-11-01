@@ -236,6 +236,21 @@
     rect(ctx, xx - 2, yy - 39 - wave, 4, 4, col);
     ctx.restore();
   }
+  function heart(ctx, x, y, on, low) {
+    const color = on ? (low ? '#f36d6b' : '#ff9a87') : '#3a2a4c';
+    const shine = on ? '#ffe1ae' : '#594666';
+    const unit = 3;
+    const squares = [
+      [1,0],[2,0],[4,0],[5,0],
+      [0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],
+      [0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],
+      [1,3],[2,3],[3,3],[4,3],[5,3],
+      [2,4],[3,4],[4,4],[3,5]
+    ];
+    for(const [px,py] of squares) rect(ctx, x+px*unit, y+py*unit,unit,unit,color);
+    rect(ctx,x+unit*1,y+unit,unit*2,unit,shine);
+    rect(ctx,x+unit*4,y+unit,unit,unit,shine);
+  }
   function frame(ctx, width, height) {
     // Gameplay stays visible behind thin, highly readable RPG status rails.
     rect(ctx, 0, 0, width, 43, 'rgba(10,10,23,0.84)');
@@ -259,5 +274,5 @@
     }
     rect(ctx, xx - 2, yy - 2, ww + 4, 2, '#9780a1');
   }
-  root.ChamPixelArt = Object.freeze({ tile, person, spirit, mark, frame, gauge, palette: PAL });
+  root.ChamPixelArt = Object.freeze({ tile, person, spirit, mark, frame, gauge, heart, palette: PAL });
 })(window);
