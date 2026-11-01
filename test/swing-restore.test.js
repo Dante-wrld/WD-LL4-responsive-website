@@ -33,6 +33,10 @@ test('a thrust in flight does not survive a save, and does not cripple the playe
   assert.ok(back && back.shrine, 'the shrine came back');
   const q = back.shrine.players.get(a.id);
   assert.ok(q, 'and so did the player');
+  // A restored seat is disconnected until the browser rejoins. This test
+  // simulates that reconnection before exercising movement or dodge.
+  assert.equal(q.connected, false);
+  q.connected = true;
 
   assert.ok(!(q.swingHit && typeof q.swingHit.has !== 'function'),
     'swingHit must never come back as a plain object');
@@ -46,6 +50,10 @@ test('a thrust in flight does not survive a save, and does not cripple the playe
   assert.ok(q.dodgeT > 0, 'he can still dodge');
 
   q.dodgeT = 0; q.dodgeReady = back.shrine.time + 99;
+  // Test free movement in the open central aisle rather than walking into
+  // the pillar beside the spearman's original position.
+  q.x = back.shrine.map.start.x;
+  q.y = back.shrine.map.start.y;
   const x0 = q.x;
   back.shrine.setInput(q.id, { mx: 1, my: 0, a: 0 });
   for (let i = 0; i < TICK; i++) back.shrine.tick();
