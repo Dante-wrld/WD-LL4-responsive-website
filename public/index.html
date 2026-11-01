@@ -143,6 +143,7 @@
     <div class="sub" style="font-size:11px;max-width:45em">Leaderboard notice: scores on the free-hosted demo are temporary and may reset after server inactivity or an update. Permanent competitive rankings require durable storage.</div>
     <div id="nextup" style="margin:10px auto;max-width:34em;font-size:12px;color:#8f9fb0"></div>
     <div class="row">
+      <button id="trialsGo" class="primary hidden" type="button">TRAIN SPIRIT TRANSFORMATIONS (ACT II)</button>
       <button id="dungeonGo" class="primary hidden" type="button">ENTER THE ANCESTRAL DUNGEON</button>
       <button id="again" class="primary">AGAIN</button>
     </div>
@@ -323,6 +324,7 @@ function onMsg(m) {
  *  coming next. Losing costs you the night, not the story. */
 function endCard(m, won) {
   $('dungeonGo').classList.add('hidden');
+  $('trialsGo').classList.add('hidden');
   $('dungeonWait').textContent = '';
   phase = won ? 'won' : 'lost';
   $('wonhead').textContent = won ? 'THE CHILD IS AWAY' : 'THE HOUSE IS ROUSED';
@@ -528,7 +530,9 @@ const BOONS = {
 function onGift(m) {
   phase = 'gift';
   const host = amHost();
-  $('gifthead').textContent = m.chapter === 'dungeon'
+  $('gifthead').textContent = m.chapter === 'trials'
+    ? `Spirit Trial ${m.chamber} of ${m.of} cleared. Transformation learned; choose equipment.`
+    : m.chapter === 'dungeon'
     ? `Dungeon ${m.chamber} of ${m.of} cleared. Choose equipment.`
     : `Chamber ${m.chamber} of ${m.of} behind you.`;
   $('giftopts').innerHTML = (m.offer || []).map((o) => `
@@ -555,19 +559,21 @@ function onDown(m) {
 function onDone(m) {
   phase = 'done';
   const dungeon = m.chapter === 'dungeon';
-  $('wonhead').textContent = dungeon ? 'THE ASH WARLORD FALLS' : 'THE SHRINE HOLDS';
+  $('wonhead').textContent = dungeon ? 'THE ASH WARLORD FALLS' : m.chapter === 'trials' ? 'THREE SPIRITS AWAKENED' : 'THE SHRINE HOLDS';
   $('wonhead').style.color = '';
-  $('wontext').innerHTML = `${esc(m.by)} ${dungeon ? 'conquered the Ancestral Dungeon' : 'held Mavambo'} in <b>${Math.floor(m.secs / 60)}m ${Math.round(m.secs % 60)}s</b>, `
+  $('wontext').innerHTML = `${esc(m.by)} ${dungeon ? 'conquered the Ancestral Dungeon' : m.chapter === 'trials' ? 'mastered the ancestral spirit trials' : 'held Mavambo'} in <b>${Math.floor(m.secs / 60)}m ${Math.round(m.secs % 60)}s</b>, `
     + `<b>${m.kills}</b> of the king\u2019s men down`
     + (m.deaths ? `, falling <b>${m.deaths}</b> ${m.deaths === 1 ? 'time' : 'times'} on the way.` : ', without once falling.');
   $('prophecy').textContent = m.line ? '\u201c' + m.line + '\u201d' : '';
   $('earned').innerHTML = (dungeon ? (m.equipment || []).map((g) => Object.values(g).filter(Boolean).join(' / '))
     : (m.gifts || [])).map((g) => `<span style="color:var(--gold)">\u25c6 ${esc(g)}</span>`).join('  ')
     || '<span style="color:#7f8fa0">No equipment or gifts taken.</span>';
+  $('trialsGo').classList.toggle('hidden', !m.canTrials || !amHost());
+  $('trialsGo').disabled = !m.canTrials || !amHost();
   $('dungeonGo').classList.toggle('hidden', !m.canDungeon || !amHost());
   $('dungeonGo').disabled = !m.canDungeon || !amHost();
-  $('dungeonWait').textContent = m.canDungeon && !amHost()
-    ? 'Your host can open the next six-room dungeon quest.' : '';
+  $('dungeonWait').textContent = (m.canDungeon || m.canTrials) && !amHost()
+    ? 'Your host can open the training quest or the Ancestral Dungeon.' : '';
   $('nextup').textContent = m.next || '';
   if (m.board) drawBoards(m.board);
   clearTimeout(bannerT); $('banner').classList.remove('show');
@@ -576,6 +582,11 @@ function onDone(m) {
     $('storyWait').textContent = 'The road stops here \u2014 for now.'; show('story'); drawScene(); }, 2600); }
 }
 $('rise').onclick = () => send({ t: 'again' });
+$('trialsGo').onclick = () => {
+  $('trialsGo').disabled = true;
+  $('dungeonWait').textContent = 'Entering the ancestral spirit trials…';
+  send({ t: 'trials' });
+};
 $('dungeonGo').onclick = () => {
   $('dungeonGo').disabled = true;
   $('dungeonWait').textContent = 'Entering the Ancestral Dungeon…';
@@ -728,7 +739,7 @@ setInterval(() => {
   const my = (k('KeyS') || k('ArrowDown') ? 1 : 0) - (k('KeyW') || k('ArrowUp') ? 1 : 0);
   if ((mx || my) && !(act === 2 && T - aimLocked < 1.5)) aim = Math.atan2(my, mx);
   if (act === 2) {
-    send({ t: 'in', mx, my, a: +aim.toFixed(3), atk: atkQ, dodge: dodgeQ, use: useQ });
+    send({ t: 'in', mx, my, a: +aim.toFixed(3), atk: atkQ, dodge: dodgeQ, use: useQ, skill: actQ });
   } else {
     send({ t: 'in', mx, my, a: +aim.toFixed(3), hurry: k('ShiftLeft') || k('ShiftRight'),
       use: useQ, act: actQ, take: takeQ });
@@ -933,7 +944,7 @@ function drawFoe(f) {
 function drawHUD2() {
   if (!me2) return;
   txt(map.name, W / 2, 22, 13, '#e8b84a', 'center');
-  txt(`${me2.chapter === 'dungeon' ? 'dungeon' : 'chamber'} ${me2.chamber} of ${me2.total || 4} \u00b7 ${me2.left} still standing`, W / 2, 38, 10,
+  txt(`${me2.chapter === 'dungeon' ? 'dungeon' : me2.chapter === 'trials' ? 'spirit trial' : 'chamber'} ${me2.chamber} of ${me2.total || 4} \u00b7 ${me2.left} still standing`, W / 2, 38, 10,
     me2.left ? '#9fb0c0' : '#79c7a4', 'center');
 
   // hearts
@@ -954,6 +965,12 @@ function drawHUD2() {
   const formLine = me2.form === 'self' ? 'CHAMINUKA' : me2.form === 'spirit' ? 'UNHOUSED' : `WEARING ${String(me2.wornName || '').toUpperCase()}`;
   txt(formLine, 18, me2.refusals ? 74 : 60, 14, me2.form === 'self' ? '#9ad6ff' : me2.form === 'spirit' ? '#c9a7ff' : '#ffd98a');
   txt(me2.buildName || '', 18, me2.refusals ? 90 : 76, 10, '#9ad6ff');
+  if (me2.aspect || (me2.aspects && me2.aspects.length)) {
+    const line = me2.aspect
+      ? me2.aspect.toUpperCase() + ' SPIRIT ' + Math.ceil(me2.aspectT || 0) + 's'
+      : 'F / ASPECT: ' + (me2.aspectCd > 0 ? me2.aspectCd + 's cooldown' : me2.nextAspect + ' ready');
+    txt(line, W - 20, 112, 11, me2.aspect ? '#dfb7ff' : '#9ad6ff', 'right');
+  }
   let yy = (me2.refusals ? 90 : 76) + 16;
   if (me2.form !== 'self') {
     txt(`your body is unguarded \u2014 it takes \u00d7${me2.vacantMult} damage`, 18, yy, 10, '#ff8b7a'); yy += 14;
@@ -992,6 +1009,8 @@ function drawHUD2() {
   // Growth remains readable while fighting, especially on a small phone screen.
   txt(`LV ${me2.level || 1}  XP ${me2.xp || 0}/${me2.nextXp || 50}  POWER ${me2.attack || 1}`,
     18, H - 47, 10, '#ffd98a');
+  if (me2.aspects && me2.aspects.length)
+    txt('SPIRIT ARTS: ' + me2.aspects.map(a => a.name).join(' / '), 18, H - 75, 9, '#d1b0ff');
   if (me2.gear && me2.gear.length)
     txt('GEAR: ' + me2.gear.map(g => g.name).join(' / '), 18, H - 61, 9, '#79c7a4');
   // what he carries
