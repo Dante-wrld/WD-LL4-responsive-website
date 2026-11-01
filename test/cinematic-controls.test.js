@@ -28,7 +28,7 @@ test('cinematic overlay respects video playback, story readability and mobile au
   assert.match(source, /prefers-reduced-motion:reduce/);
 });
 
-test('cinematic side controls preserve the game's original skip and sound actions', () => {
+test("cinematic side controls preserve the game\'s original skip and sound actions", () => {
   const source = fs.readFileSync(file, 'utf8');
   assert.match(source, /skipButton\.click\(\)/);
   assert.match(source, /\(isVideo\(\) \? soundButton : voiceButton\)\.click\(\)/);
