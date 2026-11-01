@@ -502,3 +502,11 @@ doors, suspicion, and chase mechanics are unchanged.
 
 Regression tests cover the red barracks lock, grace timing, a successful
 priest-to-servant handoff, and visible on-screen instructions.
+
+**Additional handoff protection:** deliberately stepping out of a possessed body now
+allows eight seconds before nearby guards investigate the newly slumped host.
+That prevents an instant room-wide alarm during the forced priest-to-servant
+handoff. Unattended hosts remain discoverable after eight seconds; a body
+forcibly expelled by suspicion or host timeout still triggers its normal alarm.
+The exact palace rescue route has been reproduced from start to victory with
+no alarm and is covered by the existing full-route test.
