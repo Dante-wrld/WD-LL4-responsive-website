@@ -1,0 +1,100 @@
+/* Chaminuka: The Exiled Prophet | whole-game pixel UI
+   Palette and visual framing apply to ALL scenes, not only Act II. */
+:root {
+  --gold:#f0c56f; --ink:#0b0a18; --panel:#191529;
+  --line:#76608f; --txt:#fff2d0; --dim:#c2b4d4;
+}
+html,body { background:#080916; color:var(--txt); }
+#stage { overflow:hidden; border:4px solid #b38b56; outline:4px solid #20192c;
+  box-shadow:0 0 0 7px #080816,0 0 0 11px #50405d,0 15px 55px #0009; }
+canvas { image-rendering:pixelated; }
+.screen {
+  --star:#5e506f;
+  background-color:#111025;
+  background-image:
+    linear-gradient(transparent 96%,#242039 96%),
+    radial-gradient(circle at 12% 18%,#554267 0 2px,transparent 3px),
+    radial-gradient(circle at 85% 22%,#6a5276 0 2px,transparent 3px),
+    radial-gradient(circle at 56% 9%,#786184 0 2px,transparent 3px),
+    radial-gradient(ellipse at 50% 90%,#352444 0%,#100f25 68%);
+  background-size:64px 64px,100% 100%,100% 100%,100% 100%,100% 100%;
+  box-shadow:inset 0 0 0 8px #0e0b20,inset 0 0 0 11px #6b536f,inset 0 0 0 14px #161225;
+  gap:12px;
+}
+.screen::before,.screen::after{
+  position:absolute;pointer-events:none;opacity:.7;width:24px;height:24px;
+  content:"";border:4px solid #e4b65c;
+}
+.screen::before{left:16px;top:16px;border-right:0;border-bottom:0}
+.screen::after{right:16px;bottom:16px;border-top:0;border-left:0}
+.screen > h1,.screen > h2{
+  font-family:"Courier New",monospace;
+  font-weight:900;letter-spacing:.09em;
+  text-shadow:3px 3px 0 #3b2941,5px 5px 0 #080914;
+  line-height:1.1;
+}
+#title h1{font-size:clamp(24px,5vw,56px);letter-spacing:.12em;}
+#title h2{color:#cbb3ef}
+#title::marker{content:""}
+#title .keys{max-width:75ch}
+button,input,select,.box,.rl,#story .card,.giftopt{
+  border-radius:0!important;outline-offset:3px;
+  box-shadow:inset -3px -3px 0 #0e0c1b,inset 3px 3px 0 #625277,4px 4px 0 #0a0914;
+}
+button,input,select{
+  border:3px solid #a58ab8!important;
+  background:#28203b;color:#f8edda;
+  font-family:"Courier New",monospace;
+  font-weight:bold;
+  text-transform:uppercase;
+  text-shadow:1px 2px 0 #0d0b1a;
+}
+button { min-height:38px;transition:none; }
+button:hover,button:focus-visible{border-color:var(--gold)!important;background:#423151;transform:translate(1px,1px)}
+button:active {transform:translate(3px,3px);box-shadow:inset 2px 2px 0 #13101e}
+button:disabled{filter:grayscale(.7);cursor:default;opacity:.6;transform:none}
+button.primary { background:#80512b; border-color:#f1bf6c!important; color:#fff4cf; }
+button.primary:hover{background:#a56c37}
+.box,.rl,#story .card{
+  background:rgba(20,17,36,.95);
+  border:3px solid #79628e;
+}
+.box h3,.rl b{color:#f1c56b}
+.sub,.keys{color:#c9bcd5}
+.code{font-family:"Courier New",monospace;font-weight:900;color:#f5d281;text-shadow:3px 3px #603b43}
+.keys b{border:2px solid #9d79b1;background:#302544;padding:2px 5px;color:#ffdb82}
+#banner { z-index:8; top:14%; }
+#banner .t{display:inline-block;background:#140e25d9;padding:8px 16px;
+  border:3px solid #d3a961;box-shadow:6px 6px #0c0b18;font-weight:900;text-shadow:3px 3px #1d1225}
+#banner .s{display:block;width:max-content;max-width:90%;margin:5px auto;
+  background:#151029e5;padding:6px 12px;border:2px solid #66517c}
+#story { background:#0a0b1c; }
+#story .shot,#story video,#storyPixelVideo{image-rendering:pixelated}
+#story video{filter:contrast(1.1) saturate(.9)}
+#storyPixelVideo{position:absolute;inset:0;width:100%;height:100%;z-index:1;
+  object-fit:cover;pointer-events:none}
+#story::before { background:linear-gradient(to top,#0b0a1bf2 0%,#0b0a1bc0 30%,transparent 75%); }
+#story .card {background:#151026e8;border:4px solid #b79362;max-width:46em; padding:14px 18px;}
+#storyTitle {text-shadow:3px 3px #2b1a38}
+#storyText {color:#f2e7d9}
+#storyIndex,#storyWait {color:#d9bd89}
+#toast{z-index:9;max-width:85%;background:#100f22e9;padding:8px 12px;
+  color:#ffdc8c;border:2px solid #8f709b;text-shadow:2px 2px #000;box-shadow:4px 4px #070714}
+#giftopts button{min-height:96px;border:3px solid #ae8e70!important;
+  background:#1d1732!important;box-shadow:5px 5px #070716}
+#giftopts button:hover{background:#38264d!important;border-color:#f4c66e!important}
+#boards>div{border-left:3px solid #795988;padding-left:8px}
+#down h1{color:#f08b78}
+@media(max-width:650px){
+  #stage{border-width:2px;outline-width:2px;box-shadow:none}
+  .screen{padding:4%;gap:7px;box-shadow:inset 0 0 0 4px #0e0b20,inset 0 0 0 6px #6b536f}
+  .screen::before,.screen::after{width:10px;height:10px;left:6px;top:6px}
+  .screen::after{left:auto;right:6px;top:auto;bottom:6px}
+  button,input,select{min-height:32px;padding:4px 8px}
+  #title h1{font-size:clamp(20px,4.8vw,32px)}
+  #story .card{max-width:90%;margin-bottom:3%;padding:7px 9px}
+}
+/* Respect operating-system motion accessibility preferences. */
+@media(prefers-reduced-motion:reduce){
+  button,.screen,.screen *{transition:none!important;scroll-behavior:auto!important}
+}
