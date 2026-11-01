@@ -28,6 +28,10 @@ const FOES = {
     tell: 1.12, swing: 0.23, rest: 1.20, notice: 240, cone: 0.76, col: '#9f83ef', ranged: false, boss: true },
   warlord: { name: 'The Ash Warlord', hp: 17, speed: 94, commit: 118, reach: 91, dmg: 2,
     tell: 1.04, swing: 0.24, rest: 1.12, notice: 270, cone: 0.79, col: '#ec8f49', ranged: false, boss: true },
+  echo: { name: 'The Echo of the Hunter', hp: 10, speed: 117, commit: 104, reach: 74, dmg: 1,
+    tell: 0.85, swing: 0.18, rest: 0.9, notice: 240, cone: 0.65, col: '#8db7ff', ranged: false, boss: true },
+  sentinel: { name: 'Ancestral Sentinel', hp: 14, speed: 90, commit: 112, reach: 84, dmg: 2,
+    tell: 1.12, swing: 0.22, rest: 1.2, notice: 255, cone: 0.7, col: '#c2a1ff', ranged: false, boss: true },
 };
 
 const W = 30, H = 19;
@@ -126,11 +130,44 @@ const DUNGEONS = [
   },
 ];
 
-/** Build a shrine or dungeon room, with distinct quest checkpoints. */
+/** Optional Act II mastery quest. A room's aspect is guaranteed when cleared;
+ *  treasure remains a two-way choice. Training does not block the dungeon. */
+const TRIALS = [
+  {
+    name: 'THE POOL OF REFLECTIONS',
+    line: 'He must outrun the image of his own fear. The Panther Aspect awaits.',
+    pillars: [[7, 4], [7, 14], [14, 7], [14, 11], [21, 5], [21, 13]],
+    foes: [['spearman', 18, 5], ['hunter', 24, 10]],
+    mastery: 'panther',
+    rewards: ['bronze_spear', 'leather_vest'],
+  },
+  {
+    name: 'THE HALL OF BREATH',
+    line: 'The Echo of the Hunter tests how far a free spirit may fly. The Eagle Aspect awaits.',
+    pillars: [[6, 4], [6, 14], [13, 6], [13, 12], [20, 5], [20, 13]],
+    foes: [['echo', 22, 9], ['hunter', 25, 13]],
+    boss: 'echo', mastery: 'eagle',
+    rewards: ['spirit_beads', 'iron_spear'],
+  },
+  {
+    name: 'THE ANCESTORS’ CIRCLE',
+    line: 'An ancestral sentinel tests the courage to guard the body he leaves behind.',
+    pillars: [[8, 5], [8, 13], [15, 4], [15, 14], [22, 5], [22, 13]],
+    foes: [['sentinel', 23, 9], ['spearman', 18, 5]],
+    boss: 'sentinel', mastery: 'ancestor',
+    rewards: ['warded_armor', 'moon_charm'],
+  },
+];
+
+/** Build a shrine, dungeon, or optional Act II training room. */
+
 function chamber(n) {
-  const dungeon = n >= CHAMBERS.length;
-  const index = dungeon ? Math.min(n - CHAMBERS.length, DUNGEONS.length - 1) : Math.max(0, n);
-  const spec = dungeon ? DUNGEONS[index] : CHAMBERS[index];
+  // Keep existing dungeon indexes stable for saved games and v0.10 tests.
+  const trials = n >= CHAMBERS.length + DUNGEONS.length;
+  const dungeon = !trials && n >= CHAMBERS.length;
+  const index = trials ? Math.min(n - CHAMBERS.length - DUNGEONS.length, TRIALS.length - 1)
+    : dungeon ? Math.min(n - CHAMBERS.length, DUNGEONS.length - 1) : Math.max(0, n);
+  const spec = trials ? TRIALS[index] : dungeon ? DUNGEONS[index] : CHAMBERS[index];
   const g = blank();
   for (const [i, j] of spec.pillars) pillar(g, i, j);
   // the way in behind you, and the way on once the room is clear
@@ -138,10 +175,11 @@ function chamber(n) {
   return {
     name: spec.name,
     line: spec.line,
-    index: n, chapter: dungeon ? 'dungeon' : 'shrine',
-    step: dungeon ? index + 1 : n + 1, total: dungeon ? DUNGEONS.length : CHAMBERS.length,
-    boss: spec.boss || null, rewards: spec.rewards || null,
-    last: dungeon ? index === DUNGEONS.length - 1 : n === CHAMBERS.length - 1,
+    index: n, chapter: trials ? 'trials' : dungeon ? 'dungeon' : 'shrine',
+    step: (trials || dungeon) ? index + 1 : n + 1,
+    total: trials ? TRIALS.length : dungeon ? DUNGEONS.length : CHAMBERS.length,
+    boss: spec.boss || null, rewards: spec.rewards || null, mastery: spec.mastery || null,
+    last: trials ? index === TRIALS.length - 1 : dungeon ? index === DUNGEONS.length - 1 : n === CHAMBERS.length - 1,
     w: W, h: H,
     rows: g.map((r) => r.join('')),
     doors: [], zones: [],
@@ -153,4 +191,4 @@ function chamber(n) {
   };
 }
 
-module.exports = { chamber, CHAMBERS, DUNGEONS, FOES, px, W, H };
+module.exports = { chamber, CHAMBERS, DUNGEONS, TRIALS, FOES, px, W, H };
