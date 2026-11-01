@@ -104,8 +104,11 @@
     ctx.translate(Math.round(o.x || 0), Math.round(o.y || 0));
     if (facing) ctx.scale(-1, 1);
     ctx.globalAlpha *= o.alpha === undefined ? 1 : o.alpha;
-    const P = 2;
-    const r = (x, y, w, h, c) => rect(ctx, x * P, y * P, w * P, h * P, c);
+    // A 1x horizontal pixel grid keeps ordinary bodies within their 11-unit
+    // collision radius. Height stays 2x so faces and boss silhouettes read.
+    // Never use fractional canvas scaling: it blurs small sprite pixels.
+    const PX = 1, PY = 2;
+    const r = (x, y, w, h, c) => rect(ctx, x * PX, y * PY, w * PX, h * PY, c);
     const primary = o.color || PAL.gold;
     const dark = '#171425', skin = '#94593d', gleam = '#f4c48d';
     const armor = kind === 'warlord' ? '#963d35' :
