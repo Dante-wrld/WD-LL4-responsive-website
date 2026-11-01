@@ -156,7 +156,8 @@ class Session {
     if (this.stage === 'act2' && this.shrine) {
       const sh = this.shrine;
       if (sh.phase === 'gift' && sh.offer) this.out(pid, { t: 'gift', offer: sh.offer,
-        chamber: sh.chamberN + 1, of: require('./shrine').CHAMBERS.length });
+        chapter: sh.chapter, chamber: sh.map?.step || sh.chamberN + 1,
+        of: sh.map?.total || require('./shrine').CHAMBERS.length });
       if (sh.phase === 'down' && sh.lastDown) this.out(pid, sh.lastDown);
       if (sh.phase === 'done' && sh.lastDone) this.out(pid, sh.lastDone);
     }
@@ -255,13 +256,25 @@ class Session {
     this.sendLobby();
   }
 
+  /** Enter the optional dungeon only after completing the original shrine.
+   *  Host-authorized, shared for all seats, with each player's gear preserved. */
+  enterDungeon(pid) {
+    if (this.stage !== 'act2' || !this.isHost(pid) || !this.shrine) return false;
+    return this.shrine.beginDungeon();
+  }
+
   /** Kept as the old name for "I have read it"; the barrier does the rest. */
   go(pid) { this.seen(pid); }
   /** Go again at whatever stage we are on, keeping what was earned. */
   again(pid) {
     if (!this.isHost(pid)) return;
-    if (this.stage === 'act2') this.shrine.begin({ affinities: this.carried.affinities, boons: this.carried.boons });
-    else if (this.stage === 'act1') this.room.begin();
+    if (this.stage === 'act2') {
+      if (this.shrine.chapter === 'dungeon' && this.shrine.phase === 'down') {
+        // Losing a boss fight costs the room, not the equipment earned so far.
+        for (const p of this.shrine.players.values()) { p.hp = p.hpMax; p.dead = false; }
+        this.shrine.enterChamber(this.shrine.chamberN);
+      } else this.shrine.begin({ affinities: this.carried.affinities, boons: this.carried.boons });
+    } else if (this.stage === 'act1') this.room.begin();
   }
   /** Skip straight to the shrine — for anybody who has already done the palace. */
   skipTo(pid, what) {
