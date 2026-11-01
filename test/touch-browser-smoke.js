@@ -15,13 +15,13 @@ async function run() {
     instance = await start(0, {recordsFile:path.join(dir,'records.json'),sessionsFile:path.join(dir,'sessions.json')});
     browser = await chromium.launch({headless:true});
     context = await browser.newContext({...devices['Pixel 5'],hasTouch:true,isMobile:true});
+    await context.addInitScript(()=>localStorage.setItem('cham-touch','0'));
     const page = await context.newPage();
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:'+instance.server.address().port+'/');
     await page.waitForSelector('#chamToggle');
     await page.evaluate(()=>{
-      localStorage.setItem('cham-touch','0');
       window.__touchCodes=[];
       window.addEventListener('keydown',e=>window.__touchCodes.push('down:'+e.code));
       window.addEventListener('keyup',e=>window.__touchCodes.push('up:'+e.code));
