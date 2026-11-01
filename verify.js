@@ -107,9 +107,10 @@ async function skipStory(clients) {
   // ---------------------------------------------------------------- 2
   console.log('\n2. the build screen and the opening cutscene');
   if (await visible(host, '#buildSelect')) {
-    const builds = await host.page.$$eval('#buildSelect button', (b) => b.map((x) => x.textContent.trim()));
+    const builds = await host.page.$eval('#buildSelect option', (b) => b.map((x) => x.textContent.trim()));
     ok('Act II builds offered', builds.length >= 2, builds.join(' | '));
-    await host.page.click('#buildSelect button');
+    if (builds.length > 1) await host.page.selectOption('#buildSelect', { index: 1 });
+    await sleep(250);
   } else ok('build screen (shown later in this build)', true, 'not on the lobby');
   await host.page.click('#start');
   await sleep(1200);
