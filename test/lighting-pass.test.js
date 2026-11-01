@@ -3,20 +3,24 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { chamber, CHAMBERS, DUNGEONS, TRIALS, W, H } = require('../shrine');
+const { chamber, CHAMBERS, DUNGEONS, TRIALS, ROOM_LAYOUTS, W, H } = require('../shrine');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const pixelArt = fs.readFileSync(path.join(__dirname, '..', 'public', 'pixel-art.js'), 'utf8');
 const solid = (c) => c === '#' || c === 'T' || c === 'o';
 const cell = (v) => Math.floor(v / 32);
 
-test('all thirteen Act II rooms have four wall-side braziers and remain fully traversable', () => {
+test('all thirteen Act II rooms have four distinct placed braziers and remain fully traversable', () => {
   const total = CHAMBERS.length + DUNGEONS.length + TRIALS.length;
   assert.equal(total, 13);
-  const fires = [[2,5],[2,H - 6],[W - 3,5],[W - 3,H - 6]];
+  assert.equal(ROOM_LAYOUTS.length,total,'every encounter has its own layout');
   for (let n = 0; n < total; n++) {
     const map = chamber(n);
+    const fires = ROOM_LAYOUTS[n].fires;
+    assert.equal(fires.length,4,map.name + ' has four fires');
     for (const [x,y] of fires) assert.equal(map.rows[y][x], 'o', map.name + ' missing flame');
+    assert.equal(cell(map.start.y),ROOM_LAYOUTS[n].west,'west entrance position matches map');
+    assert.equal(cell(map.door.y),ROOM_LAYOUTS[n].east,'east exit position matches map');
     const start = [cell(map.start.x), cell(map.start.y)];
     assert.ok(!solid(map.rows[start[1]][start[0]]), map.name + ' start is clear');
     const q = [start], seen = new Set([start.join(',')]);

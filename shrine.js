@@ -48,9 +48,7 @@ function blank() {
 }
 const put = (g, i, j, c) => { if (g[j] && g[j][i] !== undefined) g[j][i] = c; };
 const pillar = (g, i, j) => { put(g, i, j, 'T'); };
-/* Four wall-side braziers sit within the clear visible playfield, rather
- * than under the top and bottom HUD rails. Solid, so protect pathing. */
-const BRAZIERS = [[2, 5], [2, H - 6], [W - 3, 5], [W - 3, H - 6]];
+/* Per-room geometry and torch placement live below the room specifications. */
 
 /** The four chambers. Enemy counts rise; so does the amount of cover, because a
  *  harder room you cannot break line of sight in is just a worse room. */
@@ -162,6 +160,30 @@ const TRIALS = [
   },
 ];
 
+
+/* Distinct route profiles, without changing room dimensions, enemy AI,
+ * authority, room IDs, rewards, or progression. West/east are door rows.
+ * Each walls entry is [tileX, tileY, width, height] for stone partitions;
+ * fires are solid braziers deliberately separated from the paths and foes.
+ * Shapes are intentionally simple enough for both human and flow-field AI
+ * to read. Every floor cell must remain reachable from map.start.
+ */
+const ROOM_LAYOUTS = [
+  { west:9, east:9, walls:[[11,4,1,4],[11,11,1,4],[17,8,3,1]], fires:[[2,4],[2,14],[27,4],[27,14]] },
+  { west:9, east:12, walls:[[10,3,1,6],[18,10,1,6],[14,3,4,1]], fires:[[4,3],[4,15],[25,3],[25,15]] },
+  { west:12, east:6, walls:[[9,4,1,3],[9,12,1,3],[19,7,4,1],[19,11,4,1]], fires:[[3,5],[3,13],[26,3],[26,15]] },
+  { west:9, east:9, walls:[[10,8,4,1],[17,10,4,1],[26,6,1,7]], fires:[[2,6],[2,12],[27,7],[27,12]] },
+  { west:6, east:12, walls:[[11,6,1,7],[19,4,4,1],[19,14,4,1]], fires:[[4,4],[4,14],[26,5],[26,13]] },
+  { west:12, east:6, walls:[[9,3,1,6],[14,10,1,6],[21,8,4,1]], fires:[[3,4],[3,14],[27,6],[27,12]] },
+  { west:9, east:12, walls:[[11,6,2,1],[11,12,2,1],[19,8,1,3]], fires:[[4,5],[4,13],[26,4],[26,14]] },
+  { west:6, east:9, walls:[[9,6,1,6],[16,4,4,1],[16,14,4,1],[23,8,1,3]], fires:[[3,6],[3,12],[26,6],[26,12]] },
+  { west:12, east:6, walls:[[10,7,3,1],[10,11,3,1],[20,6,1,7]], fires:[[3,4],[3,14],[27,7],[27,12]] },
+  { west:9, east:12, walls:[[11,6,1,7],[15,8,3,1],[20,11,3,1]], fires:[[4,6],[4,12],[27,4],[27,14]] },
+  { west:6, east:12, walls:[[9,3,1,6],[10,11,1,5],[17,8,3,1]], fires:[[3,3],[3,15],[27,5],[27,13]] },
+  { west:12, east:9, walls:[[9,5,4,1],[9,13,4,1],[18,7,1,6]], fires:[[3,5],[3,13],[27,4],[27,14]] },
+  { west:9, east:6, walls:[[12,4,1,6],[12,12,1,3],[19,9,3,1]], fires:[[4,4],[4,14],[26,6],[26,12]] },
+];
+
 /** Build a shrine, dungeon, or optional Act II training room. */
 
 function chamber(n) {
@@ -171,11 +193,15 @@ function chamber(n) {
   const index = trials ? Math.min(n - CHAMBERS.length - DUNGEONS.length, TRIALS.length - 1)
     : dungeon ? Math.min(n - CHAMBERS.length, DUNGEONS.length - 1) : Math.max(0, n);
   const spec = trials ? TRIALS[index] : dungeon ? DUNGEONS[index] : CHAMBERS[index];
+  const layout = ROOM_LAYOUTS[Math.max(0, Math.min(n, ROOM_LAYOUTS.length - 1))];
   const g = blank();
+  // Build real corridors and flanking cover rather than 13 empty rectangles.
+  for (const [x, y, w, h] of layout.walls)
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) put(g, x + dx, y + dy, '#');
   for (const [i, j] of spec.pillars) pillar(g, i, j);
-  for (const [i, j] of BRAZIERS) put(g, i, j, 'o');
-  // the way in behind you, and the way on once the room is clear
-  put(g, 0, 9, '.'); put(g, W - 1, 9, '.');
+  for (const [i, j] of layout.fires) put(g, i, j, 'o');
+  // Different entry/exit rows change how players approach each encounter.
+  put(g, 0, layout.west, '.'); put(g, W - 1, layout.east, '.');
   return {
     name: spec.name,
     line: spec.line,
@@ -187,12 +213,12 @@ function chamber(n) {
     w: W, h: H,
     rows: g.map((r) => r.join('')),
     doors: [], zones: [],
-    start: { x: px(2), y: px(9) },
-    door: { x: px(W - 1), y: px(9), r: 40 },     // opens only once the room is clear
+    start: { x: px(2), y: px(layout.west) },
+    door: { x: px(W - 1), y: px(layout.east), r: 40 },     // opens only once the room is clear
     foes: spec.foes.map(([kind, i, j], k) => ({
       id: 1 + k, kind, x: px(i), y: px(j), home: { x: px(i), y: px(j) },
     })),
   };
 }
 
-module.exports = { chamber, CHAMBERS, DUNGEONS, TRIALS, FOES, px, W, H };
+module.exports = { chamber, CHAMBERS, DUNGEONS, TRIALS, ROOM_LAYOUTS, FOES, px, W, H };
