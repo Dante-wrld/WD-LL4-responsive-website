@@ -208,25 +208,11 @@
 <script>
 (() => {
 'use strict';
-const W = 960, H = 540, TILE = 32, TAU = Math.PI * 2, ZOOM = 1.35;
+const W = 960, H = 540, TILE = 32, TAU = Math.PI * 2, ZOOM = 1;
 const VW = W / ZOOM, VH = H / ZOOM;
 const $ = (id) => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
 const Pixel = window.ChamPixelArt;
-// Nearest-neighbor pass converts both authored Acts into the same 2x pixel world.
-const pixelBuffer = document.createElement('canvas');
-pixelBuffer.width = W / 2; pixelBuffer.height = H / 2;
-const pixelBufferCtx = pixelBuffer.getContext('2d');
-function pixelateWorld() {
-  pixelBufferCtx.setTransform(1, 0, 0, 1, 0, 0);
-  pixelBufferCtx.clearRect(0, 0, pixelBuffer.width, pixelBuffer.height);
-  pixelBufferCtx.imageSmoothingEnabled = true;
-  pixelBufferCtx.drawImage(cv, 0, 0, pixelBuffer.width, pixelBuffer.height);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(pixelBuffer, 0, 0, W, H);
-}
 ctx.imageSmoothingEnabled = false;
 const dark = document.createElement('canvas'); dark.width = W; dark.height = H;
 const dctx = dark.getContext('2d');
@@ -970,7 +956,8 @@ function drawFoe(f) {
   if (f.hurt) ctx.globalAlpha = 0.55;
   if (spec.boss) {
     ctx.save(); ctx.translate(f.x, f.y);
-    ctx.scale(1.32, 1.32);
+    // Avoid fractional transforms that soften pixel-art combat sprites.
+    ctx.scale(1, 1);
     person(0, 0, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1, f.kind);
     ctx.restore();
   } else person(f.x, f.y, spec.col, '#15121f', Math.cos(f.a) < 0, f.walk, 1, f.kind);
@@ -1455,8 +1442,8 @@ function frame(now) {
   }
   if (map && snap && live) {
     anim(dt);
-    if (act === 2) { drawWorld2(); pixelateWorld(); drawHUD2(); }
-    else { drawWorld(); pixelateWorld(); drawHUD(); }
+    if (act === 2) { drawWorld2(); Pixel.atmosphere(ctx, map, cam, ZOOM, W, H, T); ctx.setTransform(1, 0, 0, 1, 0, 0); drawHUD2(); }
+    else { drawWorld(); Pixel.atmosphere(ctx, map, cam, ZOOM, W, H, T); ctx.setTransform(1, 0, 0, 1, 0, 0); drawHUD(); }
   }
   pixelateStory();
   requestAnimationFrame(frame);
