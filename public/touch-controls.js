@@ -9,7 +9,7 @@
  style.textContent=[
  '#chamTouch{position:absolute;inset:0;z-index:24;pointer-events:none;display:none;touch-action:none}',
  '#chamTouch.live{display:block}',
- '#chamStickZone{position:absolute;left:0;bottom:0;width:46%;height:67%;pointer-events:auto;touch-action:none;overscroll-behavior:contain}',
+ '#chamStickZone{position:absolute;left:0;top:0;bottom:0;width:50%;height:100%;pointer-events:auto;touch-action:none;overscroll-behavior:contain}',
  '#chamStick{position:absolute;width:112px;height:112px;margin:-56px 0 0 -56px;border:2px solid #bcdfff60;border-radius:50%;background:#0c102681;opacity:0;pointer-events:none}',
  '#chamStick.show{opacity:1}',
  '#chamNub{position:absolute;left:50%;top:50%;width:45px;height:45px;margin:-22.5px 0 0 -22.5px;border-radius:50%;background:#a9dafad9}',
@@ -76,7 +76,11 @@
   if(!live||stickId!==null)return;
   e.preventDefault();stickId=e.pointerId;ox=e.clientX;oy=e.clientY;
   const r=stage.getBoundingClientRect();
-  stick.style.left=(ox-r.left)+'px';stick.style.top=(oy-r.top)+'px';
+  // Floating joystick: any touch on the left half becomes the origin.
+  // Keep its drawing inside the frame when starting at a screen edge;
+  // movement calculations still use the exact finger-down coordinates.
+  stick.style.left=Math.max(56,Math.min(r.width*0.5-56,ox-r.left))+'px';
+  stick.style.top=Math.max(56,Math.min(r.height-56,oy-r.top))+'px';
   nub.style.transform='translate(0px,0px)';stick.classList.add('show');
   try{zone.setPointerCapture(e.pointerId);}catch(_){} // Safari may reject capture during orientation changes.
  });
