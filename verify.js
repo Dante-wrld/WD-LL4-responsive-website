@@ -3,21 +3,29 @@
  * blocked on. Nothing here is specific to my build: it drives YOUR client's own
  * element ids, against YOUR server, in two real browser contexts at once.
  *
+ *   npm ci
+ *   npm install --no-save playwright     (optional browser-check dependency)
  *   npx playwright install chromium      (once)
  *   node verify.js                       (from the repo root)
  *
- * It opens two independent browser profiles — different storage, different
- * sockets, which is what "two distinct devices" means for a web game — plus a
- * third on a phone-sized viewport with touch, puts them in one room by code, and
+ * It opens three independent browser profiles — different storage, different
+ * sockets, plus a third phone-sized viewport with touch support — puts them
+ * in one room by code, and
  * walks the whole campaign. Every JS error on any of them is reported.
  *
- * Read-only against your data: it uses a throwaway records/sessions file in the
- * system temp directory and deletes it at the end.
+ * Read-only against your production data: it uses throwaway local records and
+ * sessions files in the system temp directory and deletes them at the end.
+ * Screenshots are kept in verify-shots/ for inspection (gitignored).
  */
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { chromium, devices } = require('playwright');
+let chromium, devices;
+try { ({ chromium, devices } = require('playwright')); }
+catch (_) {
+  console.error('Playwright is optional. To run the browser check: npm install --no-save playwright && npx playwright install chromium');
+  process.exit(2);
+}
 const { start } = require('./server');
 
 const SHOTS = path.join(__dirname, 'verify-shots');
@@ -121,12 +129,10 @@ async function skipStory(clients) {
   await sleep(400);
   ok('the host moved', Math.hypot(p0.x - before.x, p0.y - before.y) > 30,
     Math.round(Math.hypot(p0.x - before.x, p0.y - before.y)) + 'px');
-  const seenByGuest = await guest.page.evaluate((id) => {
-    const g = window.__snap || null; return g ? true : null;
-  }, ids[0]).catch(() => null);
-  ok('the guest is receiving snapshots', (await guest.page.evaluate(() => {
-    const c = document.getElementById('c'); return !!c && c.width > 0;
-  })));
+  const guestState = await guest.page.evaluate(() => window.__vessel?.state?.()).catch(() => null);
+  ok('the guest is receiving synchronized player snapshots',
+    !!guestState && guestState.players >= 3 && guestState.snap === true,
+    guestState ? `${guestState.players} players` : 'no state');
   await shot(guest, '3-palace'); await shot(phone, '3-palace');
 
   // ---------------------------------------------------------------- 4
@@ -137,30 +143,40 @@ async function skipStory(clients) {
   const pp = room.players.get(phoneId);
   const px0 = pp.x;
   if (pads.length) { await pads[0].tap().catch(() => {}); }
-  await phone.page.evaluate(() => {
-    const z = document.getElementById('chamStickZone') || document.getElementById('stage');
-    const t = (type, x, y) => { const tc = new Touch({ identifier: 3, target: z, clientX: x, clientY: y });
-      z.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [tc], changedTouches: [tc], bubbles: true, cancelable: true })); };
-    const r = z.getBoundingClientRect();
-    t('touchstart', r.left + r.width * 0.3, r.top + r.height * 0.6);
-    window.__push = () => t('touchmove', r.left + r.width * 0.3 + 70, r.top + r.height * 0.6);
-  }).catch(() => {});
-  await phone.page.evaluate(() => window.__push && window.__push()).catch(() => {});
-  await sleep(1100);
-  ok('the stick moves him', Math.abs(pp.x - px0) > 25, Math.round(Math.abs(pp.x - px0)) + 'px');
+  // The live joystick listens to POINTER events, not legacy TouchEvents.
+  // CDP emits genuine touch input through Chromium's input subsystem.
+  const zone = await phone.page.locator('#chamStickZone').boundingBox();
+  if (zone) {
+    const cdp = await phone.ctx.newCDPSession(phone.page);
+    const x = zone.x + zone.width * 0.3, y = zone.y + zone.height * 0.6;
+    try {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchStart', touchPoints: [{ x, y, id: 3 }] });
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove', touchPoints: [{ x: x + 65, y, id: 3 }] });
+      await sleep(1100);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    } finally { await cdp.detach(); }
+  }
+  ok('the stick moves him', Math.abs(pp.x - px0) > 25,
+    Math.round(Math.abs(pp.x - px0)) + 'px');
   await shot(phone, '4-touch');
 
   // ---------------------------------------------------------------- 5
   console.log('\n5. a player drops out and comes back');
-  await guest.ctx.close();
-  await sleep(1500);
-  ok('the room survives a disconnect', rooms.has(code) && room.roster.length >= 2, room.roster.length + ' left');
-  ok('nobody is left carrying the child into the void', !room.room.infant || room.room.infant.carrier !== ids[1]);
-  const back = await openClient(browser, url, 'rejoin');
-  const resumed = await clickIfThere(back, '#resumeRoom');
-  ok('RESUME LAST ROOM is offered', resumed || await visible(back, '#resumeRoom'), resumed ? 'clicked' : 'not shown on a fresh profile (expected)');
+  // Reuse the same browser profile: room recovery requires its local token.
+  await guest.page.goto('about:blank');
   await sleep(1200);
-  await shot(back, '5-rejoin');
+  ok('the room survives a disconnect', rooms.has(code) && room.roster.length === 3,
+    room.roster.length + ' stable seats');
+  ok('nobody is left carrying the child into the void', !room.room.infant || room.room.infant.carrier !== ids[1]);
+  await guest.page.goto(url);
+  const resumed = await clickIfThere(guest, '#resumeRoom');
+  await sleep(1200);
+  ok('RESUME LAST ROOM reclaims the same seat',
+    resumed && room.roster.length === 3 && !!room.roster.find(r => r.id === ids[1] && r.connected),
+    resumed ? 'same profile/token' : 'resume option missing');
+  await shot(guest, '5-rejoin');
 
   // ---------------------------------------------------------------- 6
   console.log('\n6. the whole campaign, to the end of the shrine');
