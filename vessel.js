@@ -428,7 +428,7 @@ class Room {
         if (b) { b.x = p.x; b.y = p.y; b.aim = p.aim; }
         p.energy = Math.min(SPIRIT_MAX, p.energy + SPIRIT_REGEN * DT);
         p.hostT -= DT;
-        if (p.hostT <= STUTTER_AT && p.hostT + DT > STUTTER_AT) this.ev.push(['ban', `${b.name} IS STIRRING`, 'Step out somewhere quiet, or he throws you clear.']);
+        if (p.hostT <= STUTTER_AT && p.hostT + DT > STUTTER_AT) this.ev.push(['ban', `${b.name} IS STIRRING`, 'Step out somewhere quiet, or he throws you clear.', p.id]);
         if (p.hostT <= 0) { this.leaveBody(p, 'wake'); clearEdges(); continue; }
         const s = this.suspicionRate(p);
         p.susp = clamp(p.susp + s.rate * DT, 0, SUSP_MAX);
@@ -447,7 +447,7 @@ class Room {
           p.energy = SPIRIT_MAX * 0.5;
           p.x = this.infant.home.x; p.y = this.infant.home.y;
           this.ev.push(['recall', rd(p.x), rd(p.y)]);
-          this.ev.push(['ban', 'THE TETHER PULLS', 'Unhoused too long — you are drawn back to the cradle.']);
+          this.ev.push(['ban', 'THE TETHER PULLS', 'Unhoused too long — you are drawn back to the cradle.', p.id]);
         }
       }
       clearEdges();
