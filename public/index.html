@@ -216,7 +216,12 @@
 <script>
 (() => {
 'use strict';
-const W = 960, H = 540, TILE = 32, TAU = Math.PI * 2, ZOOM = 1;
+// Keep desktop at exact pixel scale; show more of the room on touch phones.
+// Canvas text/HUD remains crisp at its original resolution.
+const W = 960, H = 540, TILE = 32, TAU = Math.PI * 2;
+const mobileView = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches)
+  || navigator.maxTouchPoints > 0;
+const ZOOM = mobileView ? 0.85 : 1;
 const VW = W / ZOOM, VH = H / ZOOM;
 const $ = (id) => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
@@ -715,7 +720,15 @@ function onEv(ev) {
     case 'recall': fx.push({ k: 'ring', x: ev[1], y: ev[2], r: 80, col: '#9ad6ff', t: 0, life: 0.7 }); sfx('recall'); break;
     case 'returned': texts.push({ x: ev[1], y: ev[2] - 28, s: 'back in the cradle', col: '#ffe9a0', t: 0 }); break;
     case 'feed': feed.push({ s: ev[1], t: T }); if (feed.length > 5) feed.shift(); break;
-    case 'ban': setBanner(ev[1], ev[2], 3400); break;
+    case 'ban':
+      // Player-specific warnings must not appear over everyone else's game.
+      if (ev[3] != null && ev[3] !== myId) break;
+      // The tether warning is informative, not a cutscene. A small notice
+      // preserves room visibility while keeping the recall consequence.
+      if (ev[1] === 'THE TETHER PULLS') toast('TETHER EXPIRED · returned to the cradle');
+      else if (mobileView) toast(ev[1] + ' · ' + (ev[2] || ''));
+      else setBanner(ev[1], ev[2], 2000);
+      break;
     default: break;
   }
 }
@@ -894,8 +907,10 @@ function drawWorld2() {
   if (shake < 0.2) shake = 0;
   const mp = P.get(myId) || { x: W / 2, y: H / 2 };
   cam.x += ((mp.x - VW / 2) - cam.x) * 0.16; cam.y += ((mp.y - VH / 2) - cam.y) * 0.16;
-  cam.x = Math.max(0, Math.min(map.w * TILE - VW, cam.x));
-  cam.y = Math.max(0, Math.min(map.h * TILE - VH, cam.y));
+  // If zoomed-out view is larger than a room, center that room rather than
+  // pinning its top-left to the viewport. This also preserves door visibility.
+  cam.x = map.w * TILE <= VW ? (map.w * TILE - VW) / 2 : Math.max(0, Math.min(map.w * TILE - VW, cam.x));
+  cam.y = map.h * TILE <= VH ? (map.h * TILE - VH) / 2 : Math.max(0, Math.min(map.h * TILE - VH, cam.y));
   ctx.save(); ctx.setTransform(ZOOM, 0, 0, ZOOM, Math.round((-cam.x + ox) * ZOOM), Math.round((-cam.y + oy) * ZOOM));
   const i0 = Math.max(0, Math.floor(cam.x / TILE)), i1 = Math.min(map.w - 1, Math.floor((cam.x + VW) / TILE));
   const j0 = Math.max(0, Math.floor(cam.y / TILE)), j1 = Math.min(map.h - 1, Math.floor((cam.y + VH) / TILE));
