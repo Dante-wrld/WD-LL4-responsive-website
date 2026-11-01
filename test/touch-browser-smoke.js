@@ -59,6 +59,23 @@ async function run() {
     assert.ok(events.includes('down:KeyD'),'moving joystick right holds direction');
     assert.ok(events.includes('up:KeyD'),'releasing joystick stops direction');
     assert.equal(await page.locator('#chamStick').evaluate(el=>el.classList.contains('show')),false);
+    // Start movement at the *upper* and *lower* left corners. Before this fix
+    // the joystick zone was only the bottom 67% of the stage.
+    for (const fy of [0.1, 0.9]) {
+      const x=zone.x+zone.width*0.22, y=zone.y+zone.height*fy;
+      const before=(await page.evaluate(()=>window.__touchCodes.length));
+      const session=await context.newCDPSession(page);
+      try {
+        await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:6}]});
+        await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+50,y,id:6}]});
+        await pause(160);
+        await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        await pause(150);
+      } finally {await session.detach();}
+      const cornerEvents=await page.evaluate(i=>window.__touchCodes.slice(i),before);
+      assert.ok(cornerEvents.includes('down:KeyD'),'left '+fy+' corner movement failed');
+      assert.ok(cornerEvents.includes('up:KeyD'),'left '+fy+' corner release failed');
+    }
     await page.locator('#chamToggle').tap();
     await pause(150);
     assert.equal(await page.locator('#chamTouch').evaluate(el=>el.classList.contains('live')),false);

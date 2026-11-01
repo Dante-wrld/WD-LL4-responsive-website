@@ -74,7 +74,7 @@ test('pixel theme extends to title, rooms, combat HUD, mobile and existing cinem
   assert.match(html, /Pixel\.mark\(ctx/);
   assert.match(html, /Pixel\.heart\(ctx/);
   assert.doesNotMatch(html, /function pixelateWorld\(/,'no blurry downsample/upscale pass');
-  assert.match(html, /ZOOM = 1;/,'integer world zoom prevents fractional pixel edges');
+  assert.match(html, /const ZOOM = mobileView \? 0\.85 : 1;/,'integer world zoom prevents fractional pixel edges');
   assert.match(html, /drawVeil2\(\)/, 'Act II uses banded light instead of layered gradient haze');
   assert.match(html, /storyPixelVideo/);
   assert.match(html, /pixelateStory\(\)/);
