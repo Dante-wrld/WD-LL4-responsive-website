@@ -593,6 +593,7 @@ class Room {
         +(b.state === 'alert' ? ALERT_NOTICE_CONE : NOTICE_CONE).toFixed(2)]),
       aw: Math.round(this.aware), rf: this.run ? this.run.reinforced : 0,
       inf: [rd(this.infant.x), rd(this.infant.y), this.infant.carrier],
+      hand: !this.infant.carrier ? Math.max(0, Math.ceil((this.infant.safeUntil || 0) - this.time)) : 0,
       infz: (zoneAt(this.map, this.infant.x, this.infant.y) || { name: 'the great hall' }).name,
       ev: this.ev,
     });
