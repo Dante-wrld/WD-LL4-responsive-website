@@ -765,6 +765,8 @@ function onMap2(m) {
   // A new map must never render against the previous act's snapshot.
   // Wait for the matching Act II player/enemy state before showing gameplay.
   act = 2; map = m; phase = 'loading2'; FOE = m.foes || FOE;
+  // New room or post-defeat respawn must start with a steady camera.
+  shake = 0;
   snap = null; snap2 = null; me = null; me2 = null;
   Fs.clear(); P.clear(); B.clear();
   feed.length = 0; fx.length = 0; parts.length = 0; texts.length = 0;
@@ -807,7 +809,12 @@ function onSnap2(m) {
 /** Act II's world. Same tiles, different furniture: no zones, no vision cones to
  *  sneak past — the only thing you have to hide is your own empty body. */
 function drawWorld2() {
-  const ox = (Math.random() - 0.5) * shake, oy = (Math.random() - 0.5) * shake;
+  // A hit or defeat only shakes the screen briefly. Act I already decays
+  // this value; without decay here, every later Act II frame keeps jittering.
+  const ox = shake > 0.2 ? (Math.random() - 0.5) * shake : 0;
+  const oy = shake > 0.2 ? (Math.random() - 0.5) * shake : 0;
+  shake *= 0.86;
+  if (shake < 0.2) shake = 0;
   const mp = P.get(myId) || { x: W / 2, y: H / 2 };
   cam.x += ((mp.x - VW / 2) - cam.x) * 0.16; cam.y += ((mp.y - VH / 2) - cam.y) * 0.16;
   cam.x = Math.max(0, Math.min(map.w * TILE - VW, cam.x));
