@@ -484,3 +484,21 @@ The escape is deliberately not invulnerability: the original body remains
 unattended and can be attacked if discovered; an already committed blow can
 still land; attacking from the new disguise exposes it. Palace stealth and
 the v0.9.9 shrine synchronization fixes are unchanged.
+
+### v0.9.11: Clearer role locks and protected infant handoff
+
+The red door by the barracks is a **role-locked doorway**, not an alarm gate:
+priests cannot enter the barracks and servants cannot enter it either. Players
+carrying the infant in a priest now see the short instructions to set the child
+down, possess a servant in the great hall, pick the child up, and exit through
+the **east service corridor**. Nearby inaccessible doors display the required
+roles. An idle servant is marked while the priest carries the child.
+
+Setting the child down starts a **12-second handoff grace period** so that a
+nearby guard cannot instantly return him to the nursery before the player
+can switch bodies. The countdown appears on the HUD; after it expires the
+normal child-return rules resume. The normal guard spotting, role-specific
+doors, suspicion, and chase mechanics are unchanged.
+
+Regression tests cover the red barracks lock, grace timing, a successful
+priest-to-servant handoff, and visible on-screen instructions.
