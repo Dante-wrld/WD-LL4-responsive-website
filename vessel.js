@@ -32,7 +32,10 @@ const SPIRIT_REGEN = 2.2;      // per second while wearing somebody
 // --- the host ---------------------------------------------------------------
 const POSSESS_TIME = 48;       // seconds before he wakes on his own
 const STUTTER_AT = 12;         // he starts fighting you below this
-const SLUMP_TIME = 35;         // how long he lies there after you step out
+const SLUMP_TIME = 35;
+// The player needs a few moments to leave a host and enter another body.
+// Bystanders discover the quiet slump later; a forced wake still raises alarm.
+const SLUMP_NOTICE_GRACE = 8;         // how long he lies there after you step out
 const POSSESS_RANGE = 46;
 // A deliberate change of host needs time before an unattended child is reported.
 // This is a short grace period, not immunity while carrying the infant.
@@ -215,6 +218,7 @@ class Room {
     p.x = b.x; p.y = b.y; b.wornBy = 0;
     if (how === 'slump') {
       b.state = 'slumped'; b.slumpUntil = this.time + SLUMP_TIME;
+      b.slumpNoticeAt = this.time + SLUMP_NOTICE_GRACE;
       this.ev.push(['slump', rd(b.x), rd(b.y)]);
     } else {
       b.state = 'alert'; b.alertT = ALERT_CALM;
@@ -455,6 +459,7 @@ class Room {
       if (b.state === 'slumped') {
         // a patrol that walks past a slumped man knows something is wrong
         if (this.time >= b.slumpUntil) { b.state = 'idle'; this.ev.push(['wake', rd(b.x), rd(b.y)]); this.alertNear(b.x, b.y, 200, b.id); continue; }
+        if (this.time < (b.slumpNoticeAt || 0)) continue;
         for (const o of this.bodies) {
           if (o.state !== 'idle' || o.id === b.id) continue;
           if (hyp(o.x, o.y, b.x, b.y) < 110 && los(this.map, o.x, o.y, b.x, b.y)) {
