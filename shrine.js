@@ -24,6 +24,10 @@ const FOES = {
     notice: 275, cone: 0.44, col: '#8f9f5a', ranged: true, keep: 190 },
   captain: { name: 'Captain of the Guard', hp: 7, speed: 102, commit: 100, reach: 78, dmg: 2, tell: 0.95, swing: 0.2, rest: 1.05,
     notice: 245, cone: 0.72, col: '#b05070', ranged: false },
+  warden: { name: 'The Tomb Warden', hp: 11, speed: 85, commit: 110, reach: 86, dmg: 2,
+    tell: 1.12, swing: 0.23, rest: 1.20, notice: 240, cone: 0.76, col: '#9f83ef', ranged: false, boss: true },
+  warlord: { name: 'The Ash Warlord', hp: 17, speed: 94, commit: 118, reach: 91, dmg: 2,
+    tell: 1.04, swing: 0.24, rest: 1.12, notice: 270, cone: 0.79, col: '#ec8f49', ranged: false, boss: true },
 };
 
 const W = 30, H = 19;
@@ -71,9 +75,62 @@ const CHAMBERS = [
   },
 ];
 
-/** Build chamber n (0-based, clamped to the last). */
+
+/** Optional Act III quest, entered after the existing four-room shrine ending.
+ *  Rewards are chosen at the door and equipped on the party. A pair of bosses
+ *  demands patient dodging, not impossible damage spikes. */
+const DUNGEONS = [
+  {
+    name: 'THE FORSAKEN ARMORY',
+    line: 'Old iron sleeps under the roots of Mavambo. His first real weapon waits among it.',
+    pillars: [[8, 4], [8, 14], [16, 6], [16, 12], [23, 4], [23, 14]],
+    foes: [['spearman', 19, 5], ['spearman', 20, 13], ['hunter', 25, 9]],
+    rewards: ['bronze_spear', 'leather_vest'],
+  },
+  {
+    name: 'THE HOLLOW CAVES',
+    line: 'Each stone echoes his footsteps. The dead do not warn him which way is safe.',
+    pillars: [[6, 5], [6, 13], [11, 7], [11, 11], [20, 4], [20, 14], [24, 7], [24, 11]],
+    foes: [['spearman', 17, 4], ['hunter', 23, 5], ['spearman', 18, 14], ['hunter', 25, 13]],
+    rewards: ['spirit_beads', 'iron_spear'],
+  },
+  {
+    name: 'THE FIRST PROPHET’S TOMB',
+    line: 'The guardian rises. There is no treasure without a trial of courage.',
+    pillars: [[8, 5], [8, 13], [15, 4], [15, 14], [22, 4], [22, 14]],
+    foes: [['warden', 23, 9], ['spearman', 17, 5], ['hunter', 25, 13]],
+    boss: 'warden',
+    rewards: ['warded_armor', 'moon_charm'],
+  },
+  {
+    name: 'THE WHISPERING TREASURY',
+    line: 'They buried this hoard to keep it from kings. He must choose what to carry.',
+    pillars: [[7, 4], [7, 14], [12, 6], [12, 12], [20, 5], [20, 13], [24, 4], [24, 14]],
+    foes: [['spearman', 17, 5], ['hunter', 24, 6], ['spearman', 19, 13]],
+    rewards: ['forged_spear', 'ancestral_vest'],
+  },
+  {
+    name: 'THE EMBER FORGE',
+    line: 'The last smith worked without a king. His craft survives the flame.',
+    pillars: [[7, 5], [7, 13], [12, 4], [12, 14], [18, 5], [18, 13], [24, 5], [24, 13]],
+    foes: [['captain', 22, 9], ['hunter', 25, 5], ['hunter', 25, 13]],
+    rewards: ['ember_charm', 'ancestral_spear'],
+  },
+  {
+    name: 'THE THRONE OF ASH',
+    line: 'The warlord guards the last gate. Strength alone will not defeat him.',
+    pillars: [[7, 5], [7, 13], [12, 4], [12, 14], [17, 5], [17, 13], [23, 4], [23, 14]],
+    foes: [['warlord', 23, 9], ['spearman', 19, 5], ['hunter', 25, 13]],
+    boss: 'warlord',
+    rewards: ['ancestral_spear', 'moon_charm'],
+  },
+];
+
+/** Build a shrine or dungeon room, with distinct quest checkpoints. */
 function chamber(n) {
-  const spec = CHAMBERS[Math.min(n, CHAMBERS.length - 1)];
+  const dungeon = n >= CHAMBERS.length;
+  const index = dungeon ? Math.min(n - CHAMBERS.length, DUNGEONS.length - 1) : Math.max(0, n);
+  const spec = dungeon ? DUNGEONS[index] : CHAMBERS[index];
   const g = blank();
   for (const [i, j] of spec.pillars) pillar(g, i, j);
   // the way in behind you, and the way on once the room is clear
@@ -81,8 +138,10 @@ function chamber(n) {
   return {
     name: spec.name,
     line: spec.line,
-    index: n,
-    last: n >= CHAMBERS.length - 1,
+    index: n, chapter: dungeon ? 'dungeon' : 'shrine',
+    step: dungeon ? index + 1 : n + 1, total: dungeon ? DUNGEONS.length : CHAMBERS.length,
+    boss: spec.boss || null, rewards: spec.rewards || null,
+    last: dungeon ? index === DUNGEONS.length - 1 : n === CHAMBERS.length - 1,
     w: W, h: H,
     rows: g.map((r) => r.join('')),
     doors: [], zones: [],
@@ -94,4 +153,4 @@ function chamber(n) {
   };
 }
 
-module.exports = { chamber, CHAMBERS, FOES, px, W, H };
+module.exports = { chamber, CHAMBERS, DUNGEONS, FOES, px, W, H };
